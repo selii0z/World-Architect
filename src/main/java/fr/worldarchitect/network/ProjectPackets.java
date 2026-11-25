@@ -32,6 +32,8 @@ public final class ProjectPackets {
  public record Result(boolean success,String message,java.util.List<Project> projects,java.util.Set<java.util.UUID> ready,java.util.List<fr.worldarchitect.project.StructureLibrary.Metadata> structures,PreviewBounds preview){public Result(boolean success,String message,java.util.List<Project> projects,java.util.Set<java.util.UUID> ready){this(success,message,projects,ready,java.util.List.of(),null);}}
  private static final fr.worldarchitect.project.StructureSelection SELECTIONS=new fr.worldarchitect.project.StructureSelection();
  private static volatile Action activePreview;
+ public static boolean hasActivePreview(){return activePreview!=null;}
+ public static void resetClientPreview(){activePreview=null;latest=null;}
  public static void manipulatePreview(int rotationDelta,boolean flip){
   var a=activePreview;if(a==null)return;
   var rotations=net.minecraft.world.level.block.Rotation.values();
