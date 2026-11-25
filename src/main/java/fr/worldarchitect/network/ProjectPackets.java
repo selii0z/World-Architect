@@ -28,12 +28,13 @@ public final class ProjectPackets {
   public Type<Reply> type(){return TYPE;}
  }
  public record Action(String action,String name,Project.WorldType worldType,int size,String profile,boolean automaticBackups,int width){public Action(String action,String name,Project.WorldType worldType,int size,String profile,boolean automaticBackups){this(action,name,worldType,size,profile,automaticBackups,size);}}
- public record Result(boolean success,String message,java.util.List<Project> projects,java.util.Set<java.util.UUID> ready,java.util.List<fr.worldarchitect.project.StructureLibrary.Metadata> structures){public Result(boolean success,String message,java.util.List<Project> projects,java.util.Set<java.util.UUID> ready){this(success,message,projects,ready,java.util.List.of());}}
+ public record PreviewBounds(String dimension,int minX,int minY,int minZ,int maxX,int maxY,int maxZ){}
+ public record Result(boolean success,String message,java.util.List<Project> projects,java.util.Set<java.util.UUID> ready,java.util.List<fr.worldarchitect.project.StructureLibrary.Metadata> structures,PreviewBounds preview){public Result(boolean success,String message,java.util.List<Project> projects,java.util.Set<java.util.UUID> ready){this(success,message,projects,ready,java.util.List.of(),null);}}
  private static final fr.worldarchitect.project.StructureSelection SELECTIONS=new fr.worldarchitect.project.StructureSelection();
  private static volatile Result latest;
  public static Result latest(){return latest;}
  @SubscribeEvent public static void register(RegisterPayloadHandlersEvent e){
-  var r=e.registrar("5");
+  var r=e.registrar("6");
   r.playToServer(Request.TYPE,Request.CODEC,ProjectPackets::handle);
   r.playToClient(Reply.TYPE,Reply.CODEC,(p,c)->c.enqueueWork(()->latest=GSON.fromJson(p.json(),Result.class)));
  }
@@ -48,11 +49,13 @@ public final class ProjectPackets {
    try{
     Action a=GSON.fromJson(packet.json(),Action.class);
     String message="OK";
+    PreviewBounds preview=null;
     java.util.List<fr.worldarchitect.project.StructureLibrary.Metadata> structures=java.util.List.of();
     if("preview_structure".equals(a.action())){
      var rotation=net.minecraft.world.level.block.Rotation.valueOf(a.profile());
      var mirror=a.automaticBackups()?net.minecraft.world.level.block.Mirror.FRONT_BACK:net.minecraft.world.level.block.Mirror.NONE;
      var plan=fr.worldarchitect.project.StructurePlacement.preview(player.serverLevel(),java.util.UUID.fromString(a.name()),player.blockPosition(),rotation,mirror);
+     preview=new PreviewBounds(player.serverLevel().dimension().location().toString(),plan.min().getX(),plan.min().getY(),plan.min().getZ(),plan.max().getX(),plan.max().getY(),plan.max().getZ());
      message="Aperçu valide : "+(plan.max().getX()-plan.min().getX()+1)+" x "+(plan.max().getY()-plan.min().getY()+1)+" x "+(plan.max().getZ()-plan.min().getZ()+1);
      structures=fr.worldarchitect.project.StructureLibrary.list(player.serverLevel());
     }
@@ -81,7 +84,7 @@ public final class ProjectPackets {
     var projects=ProjectService.list(player);
     var ready=new java.util.HashSet<java.util.UUID>();
     for(var project:projects) if(ProjectService.isReady(player,project.id())) ready.add(project.id());
-    result=new Result(true,message,projects,ready,structures);
+    result=new Result(true,message,projects,ready,structures,preview);
    }catch(Exception ex){
     com.mojang.logging.LogUtils.getLogger().warn("World Architect request failed for {}",player.getUUID(),ex);
     result=new Result(false,"Impossible de traiter le projet",java.util.List.of(),java.util.Set.of());
