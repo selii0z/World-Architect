@@ -27,13 +27,33 @@ public final class ProjectPackets {
   public static final StreamCodec<RegistryFriendlyByteBuf,Reply> CODEC = StreamCodec.of((b,p)->b.writeUtf(p.json(),262144),b->new Reply(b.readUtf(262144)));
   public Type<Reply> type(){return TYPE;}
  }
+ public record GhostChunk(String structure,int index,int total,java.util.List<fr.worldarchitect.project.StructureLibrary.PreviewBlock> blocks){}
+ public record GhostReply(String json) implements CustomPacketPayload {
+  public static final Type<GhostReply> TYPE=new Type<>(ResourceLocation.fromNamespaceAndPath("worldarchitect","ghost_reply"));
+  public static final StreamCodec<RegistryFriendlyByteBuf,GhostReply> CODEC=StreamCodec.of((b,p)->b.writeUtf(p.json(),262144),b->new GhostReply(b.readUtf(262144)));
+  public Type<GhostReply> type(){return TYPE;}
+ }
+ private static final java.util.Map<Integer,java.util.List<fr.worldarchitect.project.StructureLibrary.PreviewBlock>> ghostParts=new java.util.HashMap<>();
+ private static String ghostId;
+ private static java.util.List<fr.worldarchitect.project.StructureLibrary.PreviewBlock> ghostBlocks=java.util.List.of();
+ public static java.util.List<fr.worldarchitect.project.StructureLibrary.PreviewBlock> ghostBlocks(){return ghostBlocks;}
+ private static void acceptGhost(GhostChunk chunk){
+  if(activePreview==null||!chunk.structure().equals(activePreview.name())||chunk.total()<1||chunk.total()>256||chunk.index()<0||chunk.index()>=chunk.total())return;
+  if(!chunk.structure().equals(ghostId)){ghostId=chunk.structure();ghostParts.clear();ghostBlocks=java.util.List.of();}
+  ghostParts.put(chunk.index(),chunk.blocks());
+  if(ghostParts.size()==chunk.total()){
+   var combined=new java.util.ArrayList<fr.worldarchitect.project.StructureLibrary.PreviewBlock>();
+   for(int i=0;i<chunk.total();i++)combined.addAll(ghostParts.get(i));
+   ghostBlocks=java.util.List.copyOf(combined);ghostParts.clear();
+  }
+ }
  public record Action(String action,String name,Project.WorldType worldType,int size,String profile,boolean automaticBackups,int width){public Action(String action,String name,Project.WorldType worldType,int size,String profile,boolean automaticBackups){this(action,name,worldType,size,profile,automaticBackups,size);}}
  public record PreviewBounds(String dimension,int minX,int minY,int minZ,int maxX,int maxY,int maxZ,boolean valid){}
  public record Result(boolean success,String message,java.util.List<Project> projects,java.util.Set<java.util.UUID> ready,java.util.List<fr.worldarchitect.project.StructureLibrary.Metadata> structures,PreviewBounds preview){public Result(boolean success,String message,java.util.List<Project> projects,java.util.Set<java.util.UUID> ready){this(success,message,projects,ready,java.util.List.of(),null);}}
  private static final fr.worldarchitect.project.StructureSelection SELECTIONS=new fr.worldarchitect.project.StructureSelection();
  private static volatile Action activePreview;
  public static boolean hasActivePreview(){return activePreview!=null;}
- public static void resetClientPreview(){activePreview=null;latest=null;}
+ public static void resetClientPreview(){activePreview=null;latest=null;ghostId=null;ghostParts.clear();ghostBlocks=java.util.List.of();}
  public static void manipulatePreview(int rotationDelta,boolean flip){
   var a=activePreview;if(a==null)return;
   var rotations=net.minecraft.world.level.block.Rotation.values();
@@ -44,7 +64,8 @@ public final class ProjectPackets {
  private static volatile Result latest;
  public static Result latest(){return latest;}
  @SubscribeEvent public static void register(RegisterPayloadHandlersEvent e){
-  var r=e.registrar("7");
+  var r=e.registrar("8");
+  r.playToClient(GhostReply.TYPE,GhostReply.CODEC,(p,c)->c.enqueueWork(()->acceptGhost(GSON.fromJson(p.json(),GhostChunk.class))));
   r.playToServer(Request.TYPE,Request.CODEC,ProjectPackets::handle);
   r.playToClient(Reply.TYPE,Reply.CODEC,(p,c)->c.enqueueWork(()->latest=GSON.fromJson(p.json(),Result.class)));
  }
@@ -73,6 +94,13 @@ public final class ProjectPackets {
      preview=new PreviewBounds(player.serverLevel().dimension().location().toString(),plan.min().getX(),plan.min().getY(),plan.min().getZ(),plan.max().getX(),plan.max().getY(),plan.max().getZ(),valid);
      message=(valid?"Aperçu valide : ":"Placement interdit : ")+(plan.max().getX()-plan.min().getX()+1)+" x "+(plan.max().getY()-plan.min().getY()+1)+" x "+(plan.max().getZ()-plan.min().getZ()+1);
      structures=fr.worldarchitect.project.StructureLibrary.list(player.serverLevel());
+    }
+    else if("ghost_geometry".equals(a.action())){
+     ProjectService.forLevel(player.serverLevel()).orElseThrow(()->new IllegalStateException("Not a project dimension"));
+     var blocks=fr.worldarchitect.project.StructureLibrary.previewBlocks(player.serverLevel(),java.util.UUID.fromString(a.name()));
+     int total=Math.max(1,(blocks.size()+1023)/1024);
+     for(int i=0;i<total;i++)PacketDistributor.sendToPlayer(player,new GhostReply(GSON.toJson(new GhostChunk(a.name(),i,total,blocks.subList(i*1024,Math.min(blocks.size(),(i+1)*1024))))));
+     return;
     }
     else if("library".equals(a.action())){
      structures=fr.worldarchitect.project.StructureLibrary.list(player.serverLevel());
@@ -107,5 +135,9 @@ public final class ProjectPackets {
    PacketDistributor.sendToPlayer(player,new Reply(GSON.toJson(result)));
   });
  }
- public static void request(Action action){if("preview_structure".equals(action.action()))activePreview=action;else if("leave".equals(action.action()))activePreview=null;PacketDistributor.sendToServer(new Request(GSON.toJson(action)));}
+ public static void request(Action action){if("preview_structure".equals(action.action())){
+  boolean changed=activePreview==null||!action.name().equals(activePreview.name());
+  activePreview=action;
+  if(changed){ghostId=null;ghostParts.clear();ghostBlocks=java.util.List.of();PacketDistributor.sendToServer(new Request(GSON.toJson(new Action("ghost_geometry",action.name(),null,0,null,false))));}
+ }else if("leave".equals(action.action()))activePreview=null;PacketDistributor.sendToServer(new Request(GSON.toJson(action)));}
 }
