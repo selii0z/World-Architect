@@ -32,7 +32,7 @@ public final class ProjectPackets {
  private static volatile Result latest;
  public static Result latest(){return latest;}
  @SubscribeEvent public static void register(RegisterPayloadHandlersEvent e){
-  var r=e.registrar("2");
+  var r=e.registrar("3");
   r.playToServer(Request.TYPE,Request.CODEC,ProjectPackets::handle);
   r.playToClient(Reply.TYPE,Reply.CODEC,(p,c)->c.enqueueWork(()->latest=GSON.fromJson(p.json(),Result.class)));
  }
@@ -43,6 +43,8 @@ public final class ProjectPackets {
    try{
     Action a=GSON.fromJson(packet.json(),Action.class);
     if("create".equals(a.action())) ProjectService.create(player,a.name(),a.worldType(),a.size(),a.profile(),a.automaticBackups());
+    else if("visit".equals(a.action())) fr.worldarchitect.project.VisitSessions.enter(player,java.util.UUID.fromString(a.name()));
+    else if("leave".equals(a.action())) fr.worldarchitect.project.ConstructionSessions.leave(player);
     else if(!"list".equals(a.action())) throw new IllegalArgumentException("Unknown action");
     var projects=ProjectService.list(player);
     var ready=new java.util.HashSet<java.util.UUID>();
