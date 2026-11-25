@@ -10,6 +10,7 @@ public final class ArchitectScreen extends Screen {
  private static final int BG=0xff1c201b,PANEL=0xff2c3427,ACCENT=0xffb6c69c,TEXT=0xffe9eadf;
  private boolean creating=false, backups=true, selecting=false, library=false;
  private java.util.UUID selected;
+ private String notice="";
  private String librarySearch="";
  private int libraryPage=0, rotation=0;
  private boolean mirrored=false;
@@ -66,7 +67,7 @@ public final class ArchitectScreen extends Screen {
    button("+ Créer un nouveau projet",x+12,y+144,w-24,()->{creating=true;rebuild();});
    button("<",x+12,y+118,30,()->page=Math.max(0,page-1));
    button(">",x+w-42,y+118,30,()->{var r=ProjectPackets.latest();if(r!=null&&(page+1)*4<r.projects().size())page++;});
-   button("Visiter",x+12,y+168,(w-28)/2,()->{var r=ProjectPackets.latest();if(selected!=null&&r!=null&&r.ready()!=null&&r.ready().contains(selected))action("visit");});
+   button("Visiter",x+12,y+168,(w-28)/2,()->{var r=ProjectPackets.latest();if(selected==null){notice="Sélectionnez un projet dans la liste";}else if(r==null||r.ready()==null||!r.ready().contains(selected)){notice="Redémarrez le monde ou le serveur pour charger le projet";}else{notice="Connexion au projet...";action("visit");}});
    button("Quitter le projet",x+48,y+118,w-96,()->action("leave"));
    button("Fermer",x+w/2+2,y+168,(w-28)/2,this::onClose);
    button("Sélection",x+12,y+192,(w-28)/2,()->{selecting=true;rebuild();});
@@ -88,6 +89,7 @@ public final class ArchitectScreen extends Screen {
    button("Retour",x+w/2+2,y+158,(w-28)/2,()->{creating=false;rebuild();});
   }
  }
+ @Override public void renderBackground(GuiGraphics g,int mx,int my,float delta){}
  @Override public void render(GuiGraphics g,int mx,int my,float delta){
   g.fill(0,0,width,height,BG);
   int w=Math.min(340,width-24),x=(width-w)/2,y=height/2-105;
@@ -125,6 +127,7 @@ public final class ArchitectScreen extends Screen {
   }else if(type==3)g.drawCenteredString(font,"Importation indisponible pour le moment",width/2,y+184,TEXT);
   else if(sizes[size]==-1)g.drawCenteredString(font,"Longueur X / Largeur Z : 16 à 60 000 blocs",width/2,y+184,TEXT);
   else g.drawCenteredString(font,"Création des paramètres uniquement",width/2,y+184,TEXT);
+  if(!creating&&!selecting&&!library&&!notice.isEmpty())g.drawCenteredString(font,font.plainSubstrByWidth(notice,w-24),width/2,y+222,0xffdfc17b);
   super.render(g,mx,my,delta);
  }
  @Override public boolean mouseClicked(double mx,double my,int button){
@@ -141,7 +144,7 @@ public final class ArchitectScreen extends Screen {
    var r=ProjectPackets.latest();
    if(r!=null&&r.success()&&mx>=x+12&&mx<x+w-12&&my>=y+30&&my<y+114){
     int i=page*4+(int)((my-y-30)/21);
-    if(i<r.projects().size()){selected=r.projects().get(i).id();return true;}
+    if(i<r.projects().size()){selected=r.projects().get(i).id();notice="";return true;}
    }
   }
   return super.mouseClicked(mx,my,button);
