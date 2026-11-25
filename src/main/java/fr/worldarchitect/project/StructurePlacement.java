@@ -47,6 +47,12 @@ public final class StructurePlacement {
   var max=new BlockPos(bounds.maxX(),bounds.maxY(),bounds.maxZ());
   if(min.getY()<level.getMinBuildHeight()||max.getY()>=level.getMaxBuildHeight())throw new IllegalArgumentException("Outside build height");
   if(!level.getWorldBorder().isWithinBounds(min)||!level.getWorldBorder().isWithinBounds(max))throw new IllegalArgumentException("Outside world border");
+  var project=ProjectService.forLevel(level).orElse(null);
+  if(project!=null){
+   var rectangle=project.bounds();
+   if(!rectangle.contains(min.getX()+0.5,min.getZ()+0.5)||!rectangle.contains(max.getX()+0.5,max.getZ()+0.5))
+    throw new IllegalArgumentException("Structure extends outside project bounds");
+  }
   return new Plan(id,anchor.immutable(),rotation,mirror,min,max);
  }
 }
