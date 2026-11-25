@@ -25,5 +25,23 @@ public final class PreviewRenderer {
   var buffers=mc.renderBuffers().bufferSource();
   LevelRenderer.renderLineBox(event.getPoseStack(),buffers.getBuffer(RenderType.lines()),box,p.valid()?0.35f:1f,p.valid()?1f:0.2f,0.35f,0.9f);
   buffers.endBatch(RenderType.lines());
+  var blocks=ProjectPackets.ghostBlocks(p.structure());
+  // Limit immediate model rendering; large prefabs retain their complete boundary.
+  if(blocks.size()>4096)return;
+  var rotation=net.minecraft.world.level.block.Rotation.valueOf(p.rotation());
+  var mirror=p.mirrored()?net.minecraft.world.level.block.Mirror.FRONT_BACK:net.minecraft.world.level.block.Mirror.NONE;
+  var anchor=new net.minecraft.core.BlockPos(p.anchorX(),p.anchorY(),p.anchorZ());
+  var pose=event.getPoseStack();
+  for(var block:blocks){
+   var pos=net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate.transform(block.offset(),mirror,rotation,net.minecraft.core.BlockPos.ZERO).offset(anchor);
+   if(pos.distToCenterSqr(camera.x,camera.y,camera.z)>96*96)continue;
+   var state=net.minecraft.world.level.block.Block.stateById(block.stateId()).mirror(mirror).rotate(rotation);
+   pose.pushPose();
+   try{
+    pose.translate(pos.getX()-camera.x,pos.getY()-camera.y,pos.getZ()-camera.z);
+    mc.getBlockRenderer().renderSingleBlock(state,pose,buffers,0xF000F0,net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY);
+   }finally{pose.popPose();}
+  }
+  buffers.endBatch();
  }
 }
