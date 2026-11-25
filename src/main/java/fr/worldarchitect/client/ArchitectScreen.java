@@ -11,7 +11,12 @@ public final class ArchitectScreen extends Screen {
  private boolean creating=false, backups=true, selecting=false, library=false;
  private java.util.UUID selected;
  private String librarySearch="";
- private int libraryPage=0;
+ private int libraryPage=0, rotation=0;
+ private boolean mirrored=false;
+ private java.util.UUID prefabSelected;
+ private void preview(){
+  if(prefabSelected!=null)ProjectPackets.request(new ProjectPackets.Action("preview_structure",prefabSelected.toString(),null,0,net.minecraft.world.level.block.Rotation.values()[rotation].name(),mirrored));
+ }
  private java.util.List<fr.worldarchitect.project.StructureLibrary.Metadata> filtered(){
   var r=ProjectPackets.latest();
   if(r==null||r.structures()==null)return java.util.List.of();
@@ -41,7 +46,10 @@ public final class ArchitectScreen extends Screen {
    button("<",x+12,y+158,30,()->libraryPage=Math.max(0,libraryPage-1));
    button(">",x+w-42,y+158,30,()->{if((libraryPage+1)*4<filtered().size())libraryPage++;});
    button("Actualiser",x+48,y+158,w-96,()->action("library"));
-   button("Retour",x+12,y+192,w-24,()->{library=false;rebuild();});
+   button("Rotation : "+(rotation*90)+"°",x+12,y+192,(w-32)/3,()->{rotation=(rotation+1)%4;rebuild();});
+   button("Miroir : "+(mirrored?"Oui":"Non"),x+16+(w-32)/3,y+192,(w-32)/3,()->{mirrored=!mirrored;rebuild();});
+   button("Aperçu",x+20+2*((w-32)/3),y+192,(w-32)/3,this::preview);
+   button("Retour",x+12,y+216,w-24,()->{library=false;rebuild();});
   }else if(selecting){
    button("Définir le point A",x+12,y+34,w-24,()->action("select_first"));
    button("Définir le point B",x+12,y+58,w-24,()->action("select_second"));
@@ -83,18 +91,19 @@ public final class ArchitectScreen extends Screen {
  @Override public void render(GuiGraphics g,int mx,int my,float delta){
   g.fill(0,0,width,height,BG);
   int w=Math.min(340,width-24),x=(width-w)/2,y=height/2-105;
-  g.fill(x,y,x+w,y+218,PANEL);
+  g.fill(x,y,x+w,y+240,PANEL);
   g.drawCenteredString(font,library?"BIBLIOTHÈQUE":selecting?"SÉLECTION DE BÂTIMENT":creating?"NOUVEAU PROJET":"WORLD ARCHITECT",width/2,y+10,ACCENT);
   if(library){
    var entries=filtered();
    if(entries.isEmpty())g.drawCenteredString(font,"Aucun bâtiment correspondant",width/2,y+90,TEXT);
    for(int i=libraryPage*4;i<Math.min(entries.size(),libraryPage*4+4);i++){
     var s=entries.get(i);int yy=y+54+(i-libraryPage*4)*25;
-    g.fill(x+12,yy,x+w-12,yy+23,BG);
+    g.fill(x+12,yy,x+w-12,yy+23,s.id().equals(prefabSelected)?0xff4c6039:BG);
     g.drawString(font,font.plainSubstrByWidth(s.name(),w-36),x+18,yy+2,ACCENT);
     g.drawString(font,font.plainSubstrByWidth(s.category()+" | "+s.width()+" x "+s.height()+" x "+s.depth(),w-36),x+18,yy+12,TEXT);
    }
-   g.drawCenteredString(font,entries.size()+" bâtiments",width/2,y+182,TEXT);
+   var response=ProjectPackets.latest();
+   g.drawCenteredString(font,response==null?"Chargement...":font.plainSubstrByWidth(response.message(),w-24),width/2,y+182,response!=null&&!response.success()?0xffdf8b80:TEXT);
   }else if(selecting){
    var r=ProjectPackets.latest();
    if(r!=null)g.drawCenteredString(font,font.plainSubstrByWidth(r.message(),w-24),width/2,y+186,r.success()?ACCENT:0xffdf8b80);
@@ -119,6 +128,14 @@ public final class ArchitectScreen extends Screen {
   super.render(g,mx,my,delta);
  }
  @Override public boolean mouseClicked(double mx,double my,int button){
+  if(library&&button==0){
+   int w=Math.min(340,width-24),x=(width-w)/2,y=height/2-105;
+   if(mx>=x+12&&mx<x+w-12&&my>=y+54&&my<y+154){
+    int i=libraryPage*4+(int)((my-y-54)/25);
+    var entries=filtered();
+    if(i<entries.size()){prefabSelected=entries.get(i).id();return true;}
+   }
+  }
   if(!creating&&!selecting&&!library&&button==0){
    int w=Math.min(340,width-24),x=(width-w)/2,y=height/2-105;
    var r=ProjectPackets.latest();
