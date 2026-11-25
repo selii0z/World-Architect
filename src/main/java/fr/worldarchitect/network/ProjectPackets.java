@@ -62,7 +62,10 @@ public final class ProjectPackets {
     if("preview_structure".equals(a.action())){
      var rotation=net.minecraft.world.level.block.Rotation.valueOf(a.profile());
      var mirror=a.automaticBackups()?net.minecraft.world.level.block.Mirror.FRONT_BACK:net.minecraft.world.level.block.Mirror.NONE;
-     var plan=fr.worldarchitect.project.StructurePlacement.previewGeometry(player.serverLevel(),java.util.UUID.fromString(a.name()),player.blockPosition(),rotation,mirror);
+     var hit=player.pick(32.0,1.0f,false);
+     var anchor=hit instanceof net.minecraft.world.phys.BlockHitResult block && hit.getType()==net.minecraft.world.phys.HitResult.Type.BLOCK
+      ?block.getBlockPos().relative(block.getDirection()):player.blockPosition();
+     var plan=fr.worldarchitect.project.StructurePlacement.previewGeometry(player.serverLevel(),java.util.UUID.fromString(a.name()),anchor,rotation,mirror);
      boolean valid=true;
      try{fr.worldarchitect.project.StructurePlacement.validateBounds(player.serverLevel(),plan);}catch(IllegalArgumentException ex){valid=false;}
      preview=new PreviewBounds(player.serverLevel().dimension().location().toString(),plan.min().getX(),plan.min().getY(),plan.min().getZ(),plan.max().getX(),plan.max().getY(),plan.max().getZ(),valid);
