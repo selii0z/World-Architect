@@ -40,6 +40,12 @@ public final class ProjectService {
   if (registry == null) throw new IllegalStateException("Project registry unavailable");
   return registry;
  }
+ public static Project requireProject(ServerPlayer player, java.util.UUID id) {
+  return authorized(player).find(id).orElseThrow(() -> new IllegalArgumentException("Unknown project"));
+ }
+ public static boolean isReady(ServerPlayer player, java.util.UUID id) {
+  return ProjectWorlds.resolve(player, requireProject(player,id)).isPresent();
+ }
  public static List<Project> list(ServerPlayer player) { return authorized(player).list(); }
  public static Project create(ServerPlayer player, String name, Project.WorldType type, int size, String profile, boolean backups) throws IOException {
   if (type == Project.WorldType.IMPORTED) throw new IllegalArgumentException("Import not implemented");
