@@ -24,9 +24,16 @@ public final class ArchitectKeys {
  }
  @EventBusSubscriber(modid="worldarchitect", value=Dist.CLIENT)
  public static class Input {
+  private static int previewTicks;
+  private static net.minecraft.client.multiplayer.ClientLevel previousLevel;
+  private static net.minecraft.core.BlockPos previousTarget;
   private static void send(String action){fr.worldarchitect.network.ProjectPackets.request(new fr.worldarchitect.network.ProjectPackets.Action(action,null,null,0,null,false));}
   @SubscribeEvent public static void tick(ClientTickEvent.Post e) {
    var client=Minecraft.getInstance();
+   if(previousLevel!=client.level){
+    previousLevel=client.level;previousTarget=null;previewTicks=0;
+    fr.worldarchitect.network.ProjectPackets.resetClientPreview();
+   }
    if(client.player!=null&&client.screen==null&&client.level!=null&&client.level.dimension().location().getNamespace().equals("worldarchitect")){
     while(POINT_A.consumeClick())send("select_first");
     while(POINT_B.consumeClick())send("select_second");
@@ -35,6 +42,15 @@ public final class ArchitectKeys {
     while(MIRROR.consumeClick())fr.worldarchitect.network.ProjectPackets.manipulatePreview(0,true);
     while(MOVE.consumeClick())fr.worldarchitect.network.ProjectPackets.manipulatePreview(0,false);
     while(CANCEL.consumeClick())fr.worldarchitect.network.ProjectPackets.cancelPreview();
+    if(fr.worldarchitect.network.ProjectPackets.hasActivePreview()&&++previewTicks>=5){
+     previewTicks=0;
+     var hit=client.player.pick(32.0,1.0f,false);
+     var target=hit instanceof net.minecraft.world.phys.BlockHitResult block&&hit.getType()==net.minecraft.world.phys.HitResult.Type.BLOCK?block.getBlockPos().relative(block.getDirection()):client.player.blockPosition();
+     if(!target.equals(previousTarget)){
+      previousTarget=target;
+      fr.worldarchitect.network.ProjectPackets.manipulatePreview(0,false);
+     }
+    }else if(!fr.worldarchitect.network.ProjectPackets.hasActivePreview()){previousTarget=null;previewTicks=0;}
    }else{
     while(POINT_A.consumeClick()){}
     while(POINT_B.consumeClick()){}
