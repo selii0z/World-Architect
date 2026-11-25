@@ -40,6 +40,25 @@ public final class StructureLibrary {
   result.sort(java.util.Comparator.comparing(Metadata::category).thenComparing(Metadata::name).thenComparing(Metadata::id));
   return java.util.List.copyOf(result);
  }
+ public record PreviewBlock(BlockPos offset,int stateId){}
+ public static java.util.List<PreviewBlock> previewBlocks(ServerLevel level,UUID id) throws IOException {
+  var data=read(level,id).getCompound("structure");
+  var palette=data.getList("palette",10);
+  var blocks=data.getList("blocks",10);
+  if(blocks.size()>262144||palette.isEmpty()||palette.size()>65536)throw new IOException("Invalid preview data");
+  var lookup=level.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.BLOCK);
+  var states=new java.util.ArrayList<net.minecraft.world.level.block.state.BlockState>();
+  for(int i=0;i<palette.size();i++)states.add(net.minecraft.nbt.NbtUtils.readBlockState(lookup,palette.getCompound(i)));
+  var result=new java.util.ArrayList<PreviewBlock>();
+  for(int i=0;i<blocks.size();i++){
+   var entry=blocks.getCompound(i);var pos=entry.getList("pos",3);int index=entry.getInt("state");
+   if(pos.size()!=3||index<0||index>=states.size())throw new IOException("Invalid preview block");
+   var state=states.get(index);
+   if(state.isAir()||state.is(net.minecraft.world.level.block.Blocks.STRUCTURE_BLOCK))continue;
+   result.add(new PreviewBlock(new BlockPos(pos.getInt(0),pos.getInt(1),pos.getInt(2)),net.minecraft.world.level.block.Block.getId(state)));
+  }
+  return java.util.List.copyOf(result);
+ }
  public static StructureTemplate load(ServerLevel level,UUID id) throws IOException {
   var data=read(level,id).getCompound("structure");
   var size=data.getList("size",3);
