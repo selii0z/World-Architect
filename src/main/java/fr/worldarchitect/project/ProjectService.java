@@ -38,6 +38,12 @@ public final class ProjectService {
  @SubscribeEvent public static void stop(ServerStoppedEvent event) {
   REGISTRIES.remove(event.getServer());
  }
+ public static java.util.Optional<Project> forLevel(net.minecraft.server.level.ServerLevel level){
+  var registry=REGISTRIES.get(level.getServer());
+  if(registry==null)return java.util.Optional.empty();
+  String dimension=level.dimension().location().toString();
+  return registry.list().stream().filter(p->p.dimensionId().equals(dimension)).findFirst();
+ }
  private static ProjectRegistry authorized(ServerPlayer player) {
   if (!player.hasPermissions(2)) throw new SecurityException("Administrator required");
   MinecraftServer server = player.getServer();
