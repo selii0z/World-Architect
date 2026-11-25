@@ -53,7 +53,11 @@ public final class ArchitectScreen extends Screen {
    else for(int i=page*4;i<Math.min(page*4+4,r.projects().size());i++){
     var p=r.projects().get(i);int yy=y+30+(i-page*4)*21;
     g.fill(x+12,yy,x+w-12,yy+19,BG);
-    g.drawString(font,font.plainSubstrByWidth(p.name(),w-36),x+18,yy+5,TEXT);
+    boolean ready=r.ready()!=null && r.ready().contains(p.id());
+    String status=ready?"Disponible":"Non chargée";
+    int sw=font.width(status);
+    g.drawString(font,font.plainSubstrByWidth(p.name(),Math.max(0,w-48-sw)),x+18,yy+5,TEXT);
+    g.drawString(font,status,x+w-18-sw,yy+5,ready?0xffa6c878:0xffdfc17b);
    }
   }else if(type==3)g.drawCenteredString(font,"Importation indisponible pour le moment",width/2,y+184,TEXT);
   else g.drawCenteredString(font,"Création des paramètres uniquement",width/2,y+184,TEXT);
