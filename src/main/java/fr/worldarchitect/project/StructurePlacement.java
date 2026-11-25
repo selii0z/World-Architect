@@ -11,7 +11,22 @@ import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlac
 public final class StructurePlacement {
  private StructurePlacement(){}
  // Do not expose to players until undo and construction authorization are integrated.
- static boolean placeInternal(ServerLevel level,Plan requested,boolean includeAir) throws IOException {
+ record PlacementResult(UUID undoId,boolean success){}
+ static PlacementResult placeWithUndo(ServerLevel level,UUID player,Plan requested,boolean includeAir) throws IOException {
+  var plan=preview(level,requested.structure(),requested.anchor(),requested.rotation(),requested.mirror());
+  UUID undoId=PlacementUndoJournal.capture(level,player,plan);
+  try {
+   boolean success=placeInternal(level,plan,includeAir);
+   if(!success && !PlacementUndoJournal.restore(level,player,undoId))throw new IOException("Placement and rollback failed; snapshot "+undoId);
+   return new PlacementResult(undoId,success);
+  } catch(Exception failure){
+   try {
+    if(!PlacementUndoJournal.restore(level,player,undoId))throw new IOException("Rollback unsuccessful");
+   }catch(Exception rollback){failure.addSuppressed(rollback);}
+   throw new IOException("Placement failed; recovery snapshot "+undoId,failure);
+  }
+ }
+ private static boolean placeInternal(ServerLevel level,Plan requested,boolean includeAir) throws IOException {
   if(!level.getServer().isSameThread())throw new IllegalStateException("Server thread required");
   var plan=preview(level,requested.structure(),requested.anchor(),requested.rotation(),requested.mirror());
   for(int x=plan.min().getX()>>4;x<=plan.max().getX()>>4;x++)
