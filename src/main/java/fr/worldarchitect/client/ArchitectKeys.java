@@ -13,6 +13,7 @@ public final class ArchitectKeys {
  static final KeyMapping POINT_A = new KeyMapping("World Architect : point A",InputConstants.Type.KEYSYM,GLFW.GLFW_KEY_UNKNOWN,"key.categories.worldarchitect");
  static final KeyMapping POINT_B = new KeyMapping("World Architect : point B",InputConstants.Type.KEYSYM,GLFW.GLFW_KEY_UNKNOWN,"key.categories.worldarchitect");
  static final KeyMapping CLEAR = new KeyMapping("World Architect : effacer la sélection",InputConstants.Type.KEYSYM,GLFW.GLFW_KEY_UNKNOWN,"key.categories.worldarchitect");
+ static final KeyMapping CONFIRM = previewKey("Confirmer le placement");
  static final KeyMapping UNDO = previewKey("Annuler la dernière modification");
  static final KeyMapping REDO = previewKey("Rétablir la modification");
  static final KeyMapping ROTATE = previewKey("Tourner le bâtiment");
@@ -22,7 +23,7 @@ public final class ArchitectKeys {
  private static KeyMapping previewKey(String name){return new KeyMapping("World Architect : "+name,InputConstants.Type.KEYSYM,GLFW.GLFW_KEY_UNKNOWN,"key.categories.worldarchitect");}
  @EventBusSubscriber(modid="worldarchitect", value=Dist.CLIENT, bus=EventBusSubscriber.Bus.MOD)
  public static class Registration {
-  @SubscribeEvent public static void register(RegisterKeyMappingsEvent e) { e.register(OPEN); e.register(POINT_A); e.register(POINT_B); e.register(CLEAR); e.register(ROTATE); e.register(MIRROR); e.register(MOVE); e.register(CANCEL); e.register(UNDO); e.register(REDO); }
+  @SubscribeEvent public static void register(RegisterKeyMappingsEvent e) { e.register(OPEN); e.register(POINT_A); e.register(POINT_B); e.register(CLEAR); e.register(ROTATE); e.register(MIRROR); e.register(MOVE); e.register(CANCEL); e.register(UNDO); e.register(REDO); e.register(CONFIRM); }
  }
  @EventBusSubscriber(modid="worldarchitect", value=Dist.CLIENT)
  public static class Input {
@@ -46,6 +47,7 @@ public final class ArchitectKeys {
     while(CANCEL.consumeClick())fr.worldarchitect.network.ProjectPackets.cancelPreview();
     while(UNDO.consumeClick())send("undo_edit");
     while(REDO.consumeClick())send("redo_edit");
+    while(CONFIRM.consumeClick())fr.worldarchitect.network.ProjectPackets.confirmPreview();
     if(fr.worldarchitect.network.ProjectPackets.hasActivePreview()&&++previewTicks>=5){
      previewTicks=0;
      var hit=client.player.pick(32.0,1.0f,false);
@@ -65,6 +67,7 @@ public final class ArchitectKeys {
     while(CANCEL.consumeClick()){}
     while(UNDO.consumeClick()){}
     while(REDO.consumeClick()){}
+    while(CONFIRM.consumeClick()){}
    }
    while (OPEN.consumeClick()) {
     Minecraft mc = Minecraft.getInstance();
