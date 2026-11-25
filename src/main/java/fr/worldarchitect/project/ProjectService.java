@@ -17,7 +17,14 @@ public final class ProjectService {
  @SubscribeEvent public static void start(ServerStartingEvent event) {
   MinecraftServer server = event.getServer();
   try {
-   REGISTRIES.put(server, new ProjectRegistry(server.getWorldPath(LevelResource.ROOT).resolve("worldarchitect")));
+   ProjectRegistry registry = new ProjectRegistry(server.getWorldPath(LevelResource.ROOT).resolve("worldarchitect"));
+   REGISTRIES.put(server, registry);
+   for (Project project : registry.list()) {
+    if (project.worldType() == Project.WorldType.IMPORTED) continue;
+    try { ProjectDatapack.stage(server, project); }
+    catch (java.nio.file.FileAlreadyExistsException ignored) {}
+    catch (IOException e) { com.mojang.logging.LogUtils.getLogger().error("Cannot stage project {}", project.id(), e); }
+   }
   } catch(IOException e) {
    com.mojang.logging.LogUtils.getLogger().error("World Architect registry unavailable; existing data preserved", e);
   }
@@ -35,6 +42,9 @@ public final class ProjectService {
  }
  public static List<Project> list(ServerPlayer player) { return authorized(player).list(); }
  public static Project create(ServerPlayer player, String name, Project.WorldType type, int size, String profile, boolean backups) throws IOException {
-  return authorized(player).create(name,type,size,profile,backups);
+  if (type == Project.WorldType.IMPORTED) throw new IllegalArgumentException("Import not implemented");
+  Project project = authorized(player).create(name,type,size,profile,backups);
+  ProjectDatapack.stage(player.getServer(), project);
+  return project;
  }
 }
