@@ -20,6 +20,6 @@ public final class ProjectWorlds {
   if(!level.dimension().location().toString().equals(project.dimensionId())) throw new IllegalArgumentException("Wrong dimension");
   if(!level.getServer().isSameThread()) throw new IllegalStateException("Server thread required");
   level.getWorldBorder().setCenter(0,0);
-  level.getWorldBorder().setSize(project.size()==0?59999968:project.size());
+  level.getWorldBorder().setSize(project.bounds().unlimited()?59999968:project.bounds().enclosingSquare());
  }
 }
