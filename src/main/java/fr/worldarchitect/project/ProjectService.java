@@ -24,7 +24,7 @@ public final class ProjectService {
     var level=server.getLevel(key);
     if(level!=null){
      level.getWorldBorder().setCenter(0,0);
-     level.getWorldBorder().setSize(project.size()==0?59999968:project.size());
+     ProjectWorlds.configureBorder(level,project);
     }else com.mojang.logging.LogUtils.getLogger().info("Project {} dimension not loaded; restart with project datapack enabled",project.id());
     if (project.worldType() == Project.WorldType.IMPORTED) continue;
     try { ProjectDatapack.stage(server, project); }
@@ -53,9 +53,10 @@ public final class ProjectService {
   return ProjectWorlds.resolve(player, requireProject(player,id)).isPresent();
  }
  public static List<Project> list(ServerPlayer player) { return authorized(player).list(); }
- public static Project create(ServerPlayer player, String name, Project.WorldType type, int size, String profile, boolean backups) throws IOException {
+ public static Project create(ServerPlayer player, String name, Project.WorldType type, int size, String profile, boolean backups) throws IOException {return create(player,name,type,size,size,profile,backups);}
+ public static Project create(ServerPlayer player,String name,Project.WorldType type,int size,int width,String profile,boolean backups) throws IOException {
   if (type == Project.WorldType.IMPORTED) throw new IllegalArgumentException("Import not implemented");
-  Project project = authorized(player).create(name,type,size,profile,backups);
+  Project project = authorized(player).create(name,type,size,width,profile,backups);
   ProjectDatapack.stage(player.getServer(), project);
   return project;
  }
