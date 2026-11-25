@@ -23,7 +23,7 @@ public final class PreviewRenderer {
   var camera=event.getCamera().getPosition();
   var box=new AABB(p.minX(),p.minY(),p.minZ(),p.maxX()+1.0,p.maxY()+1.0,p.maxZ()+1.0).move(-camera.x,-camera.y,-camera.z);
   var buffers=mc.renderBuffers().bufferSource();
-  LevelRenderer.renderLineBox(event.getPoseStack(),buffers.getBuffer(RenderType.lines()),box,0.35f,1f,0.35f,0.9f);
+  LevelRenderer.renderLineBox(event.getPoseStack(),buffers.getBuffer(RenderType.lines()),box,p.valid()?0.35f:1f,p.valid()?1f:0.2f,0.35f,0.9f);
   buffers.endBatch(RenderType.lines());
  }
 }
