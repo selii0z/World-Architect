@@ -31,8 +31,9 @@ public final class ProjectRegistry {
  }
  public synchronized List<Project> list() { return List.copyOf(projects.values()); }
  public synchronized Optional<Project> find(UUID id) { return Optional.ofNullable(projects.get(id)); }
- public synchronized Project create(String name, Project.WorldType type, int size, String profile, boolean backups) throws IOException {
-  Project p = new Project(UUID.randomUUID(), name, type, size, profile, backups);
+ public synchronized Project create(String name, Project.WorldType type, int size, String profile, boolean backups) throws IOException {return create(name,type,size,size,profile,backups);}
+ public synchronized Project create(String name, Project.WorldType type,int size,int width,String profile,boolean backups) throws IOException {
+  Project p = new Project(UUID.randomUUID(), name, type, size, profile, backups,width);
   Map<UUID, Project> next = new LinkedHashMap<>(projects);
   next.put(p.id(), p);
   persist(next);
