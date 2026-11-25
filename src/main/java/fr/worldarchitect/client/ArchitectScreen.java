@@ -9,6 +9,8 @@ import fr.worldarchitect.project.Project;
 public final class ArchitectScreen extends Screen {
  private static final int BG=0xff1c201b,PANEL=0xff2c3427,ACCENT=0xffb6c69c,TEXT=0xffe9eadf;
  private boolean creating=false, backups=true;
+ private java.util.UUID selected;
+ private void action(String action){ProjectPackets.request(new ProjectPackets.Action(action,selected==null?null:selected.toString(),null,0,null,false));}
  private int type=0,size=2,profile=0,page=0;
  private String name="";
  private EditBox nameBox;
@@ -26,7 +28,8 @@ public final class ArchitectScreen extends Screen {
    button("+ Créer un nouveau projet",x+12,y+144,w-24,()->{creating=true;rebuild();});
    button("<",x+12,y+118,30,()->page=Math.max(0,page-1));
    button(">",x+w-42,y+118,30,()->{var r=ProjectPackets.latest();if(r!=null&&(page+1)*4<r.projects().size())page++;});
-   button("Actualiser",x+12,y+168,(w-28)/2,this::refresh);
+   button("Visiter",x+12,y+168,(w-28)/2,()->{var r=ProjectPackets.latest();if(selected!=null&&r!=null&&r.ready()!=null&&r.ready().contains(selected))action("visit");});
+   button("Quitter le projet",x+48,y+118,w-96,()->action("leave"));
    button("Fermer",x+w/2+2,y+168,(w-28)/2,this::onClose);
    refresh();
   }else{
@@ -52,7 +55,7 @@ public final class ArchitectScreen extends Screen {
    else if(r.projects().isEmpty())g.drawCenteredString(font,"Aucun projet",width/2,y+48,TEXT);
    else for(int i=page*4;i<Math.min(page*4+4,r.projects().size());i++){
     var p=r.projects().get(i);int yy=y+30+(i-page*4)*21;
-    g.fill(x+12,yy,x+w-12,yy+19,BG);
+    g.fill(x+12,yy,x+w-12,yy+19,p.id().equals(selected)?0xff4c6039:BG);
     boolean ready=r.ready()!=null && r.ready().contains(p.id());
     String status=ready?"Disponible":"Non chargée";
     int sw=font.width(status);
@@ -62,6 +65,17 @@ public final class ArchitectScreen extends Screen {
   }else if(type==3)g.drawCenteredString(font,"Importation indisponible pour le moment",width/2,y+184,TEXT);
   else g.drawCenteredString(font,"Création des paramètres uniquement",width/2,y+184,TEXT);
   super.render(g,mx,my,delta);
+ }
+ @Override public boolean mouseClicked(double mx,double my,int button){
+  if(!creating&&button==0){
+   int w=Math.min(340,width-24),x=(width-w)/2,y=height/2-105;
+   var r=ProjectPackets.latest();
+   if(r!=null&&r.success()&&mx>=x+12&&mx<x+w-12&&my>=y+30&&my<y+114){
+    int i=page*4+(int)((my-y-30)/21);
+    if(i<r.projects().size()){selected=r.projects().get(i).id();return true;}
+   }
+  }
+  return super.mouseClicked(mx,my,button);
  }
  @Override public boolean isPauseScreen(){return false;}
 }
