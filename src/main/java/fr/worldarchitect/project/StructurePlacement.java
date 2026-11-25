@@ -10,6 +10,19 @@ import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlac
 
 public final class StructurePlacement {
  private StructurePlacement(){}
+ // Do not expose to players until undo and construction authorization are integrated.
+ static boolean placeInternal(ServerLevel level,Plan requested,boolean includeAir) throws IOException {
+  if(!level.getServer().isSameThread())throw new IllegalStateException("Server thread required");
+  var plan=preview(level,requested.structure(),requested.anchor(),requested.rotation(),requested.mirror());
+  for(int x=plan.min().getX()>>4;x<=plan.max().getX()>>4;x++)
+   for(int z=plan.min().getZ()>>4;z<=plan.max().getZ()>>4;z++)
+    if(!level.hasChunk(x,z))throw new IllegalStateException("Destination contains unloaded chunks");
+  var template=StructureLibrary.load(level,plan.structure());
+  var settings=new StructurePlaceSettings().setRotation(plan.rotation()).setMirror(plan.mirror()).setIgnoreEntities(true);
+  settings.addProcessor(net.minecraft.world.level.levelgen.structure.templatesystem.BlockIgnoreProcessor.STRUCTURE_BLOCK);
+  if(!includeAir)settings.addProcessor(net.minecraft.world.level.levelgen.structure.templatesystem.BlockIgnoreProcessor.AIR);
+  return template.placeInWorld(level,plan.anchor(),plan.anchor(),settings,level.getRandom(),3);
+ }
  public record Plan(UUID structure,BlockPos anchor,Rotation rotation,Mirror mirror,BlockPos min,BlockPos max){}
  public static Plan preview(ServerLevel level,UUID id,BlockPos anchor,Rotation rotation,Mirror mirror) throws IOException {
   var template=StructureLibrary.load(level,id);
