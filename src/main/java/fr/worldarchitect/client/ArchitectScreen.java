@@ -18,8 +18,8 @@ public final class ArchitectScreen extends Screen {
  private String manualSize="3000",manualWidth="1500";
  private int chosenWidth(){if(sizes[size]!=-1)return sizes[size];try{return Integer.parseInt(manualWidth);}catch(NumberFormatException e){return -1;}}
  private int chosenSize(){if(sizes[size]!=-1)return sizes[size];try{return Integer.parseInt(manualSize);}catch(NumberFormatException e){return -1;}}
- private final String[] profiles={"worldarchitect:generic","worldarchitect:escape","worldarchitect:pokeleague","worldarchitect:fieldorders","worldarchitect:pokeworld"};
- private final String[] labels={"Construction libre","Escape From Minecraft","PokéLeague","Field Orders","PokéWorld"};
+ private final String[] profiles={"worldarchitect:generic"};
+ private final String[] labels={"Construction libre"};
  private final String[] types={"Naturel","Plat","Vide","Importé"};
  public ArchitectScreen(){super(Component.literal("World Architect"));}
  private void refresh(){ProjectPackets.request(new ProjectPackets.Action("list",null,null,0,null,false));}
