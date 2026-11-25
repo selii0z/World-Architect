@@ -95,6 +95,12 @@ public final class ProjectPackets {
      message=(valid?"Aperçu valide : ":"Placement interdit : ")+(plan.max().getX()-plan.min().getX()+1)+" x "+(plan.max().getY()-plan.min().getY()+1)+" x "+(plan.max().getZ()-plan.min().getZ()+1);
      structures=fr.worldarchitect.project.StructureLibrary.list(player.serverLevel());
     }
+    else if("undo_edit".equals(a.action())){
+     message=fr.worldarchitect.project.ProjectEdits.undo(player)?"Modification annulée":"Aucune modification à annuler";
+    }
+    else if("redo_edit".equals(a.action())){
+     message=fr.worldarchitect.project.ProjectEdits.redo(player)?"Modification rétablie":"Aucune modification à rétablir";
+    }
     else if("ghost_geometry".equals(a.action())){
      ProjectService.forLevel(player.serverLevel()).orElseThrow(()->new IllegalStateException("Not a project dimension"));
      var blocks=fr.worldarchitect.project.StructureLibrary.previewBlocks(player.serverLevel(),java.util.UUID.fromString(a.name()));
