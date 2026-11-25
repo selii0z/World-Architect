@@ -49,7 +49,14 @@ public final class ProjectPackets {
     Action a=GSON.fromJson(packet.json(),Action.class);
     String message="OK";
     java.util.List<fr.worldarchitect.project.StructureLibrary.Metadata> structures=java.util.List.of();
-    if("library".equals(a.action())){
+    if("preview_structure".equals(a.action())){
+     var rotation=net.minecraft.world.level.block.Rotation.valueOf(a.profile());
+     var mirror=a.automaticBackups()?net.minecraft.world.level.block.Mirror.FRONT_BACK:net.minecraft.world.level.block.Mirror.NONE;
+     var plan=fr.worldarchitect.project.StructurePlacement.preview(player.serverLevel(),java.util.UUID.fromString(a.name()),player.blockPosition(),rotation,mirror);
+     message="Aperçu valide : "+(plan.max().getX()-plan.min().getX()+1)+" x "+(plan.max().getY()-plan.min().getY()+1)+" x "+(plan.max().getZ()-plan.min().getZ()+1);
+     structures=fr.worldarchitect.project.StructureLibrary.list(player.serverLevel());
+    }
+    else if("library".equals(a.action())){
      structures=fr.worldarchitect.project.StructureLibrary.list(player.serverLevel());
      message=structures.size()+" bâtiments enregistrés";
     }
