@@ -29,6 +29,7 @@ public final class ProjectPackets {
  }
  public record Action(String action,String name,Project.WorldType worldType,int size,String profile,boolean automaticBackups,int width){public Action(String action,String name,Project.WorldType worldType,int size,String profile,boolean automaticBackups){this(action,name,worldType,size,profile,automaticBackups,size);}}
  public record Result(boolean success,String message,java.util.List<Project> projects,java.util.Set<java.util.UUID> ready){}
+ private static final fr.worldarchitect.project.StructureSelection SELECTIONS=new fr.worldarchitect.project.StructureSelection();
  private static volatile Result latest;
  public static Result latest(){return latest;}
  @SubscribeEvent public static void register(RegisterPayloadHandlersEvent e){
@@ -46,14 +47,23 @@ public final class ProjectPackets {
    Result result;
    try{
     Action a=GSON.fromJson(packet.json(),Action.class);
-    if("create".equals(a.action())) ProjectService.create(player,a.name(),a.worldType(),a.size(),a.width(),a.profile(),a.automaticBackups());
+    String message="OK";
+    if("select_first".equals(a.action())||"select_second".equals(a.action())){
+     var selection=SELECTIONS.set(player,player.blockPosition(),"select_first".equals(a.action()));
+     message=selection.complete()?"Sélection complète : "+selection.volume()+" blocs":"Premier point de sélection enregistré";
+    }
+    else if("select_clear".equals(a.action())){
+     SELECTIONS.clear(player.getUUID());
+     message="Sélection effacée";
+    }
+    else if("create".equals(a.action())) ProjectService.create(player,a.name(),a.worldType(),a.size(),a.width(),a.profile(),a.automaticBackups());
     else if("visit".equals(a.action())) fr.worldarchitect.project.VisitSessions.enter(player,java.util.UUID.fromString(a.name()));
-    else if("leave".equals(a.action())) fr.worldarchitect.project.ConstructionSessions.leave(player);
+    else if("leave".equals(a.action())) {fr.worldarchitect.project.ConstructionSessions.leave(player);SELECTIONS.clear(player.getUUID());}
     else if(!"list".equals(a.action())) throw new IllegalArgumentException("Unknown action");
     var projects=ProjectService.list(player);
     var ready=new java.util.HashSet<java.util.UUID>();
     for(var project:projects) if(ProjectService.isReady(player,project.id())) ready.add(project.id());
-    result=new Result(true,"OK",projects,ready);
+    result=new Result(true,message,projects,ready);
    }catch(Exception ex){
     com.mojang.logging.LogUtils.getLogger().warn("World Architect request failed for {}",player.getUUID(),ex);
     result=new Result(false,"Impossible de traiter le projet",java.util.List.of(),java.util.Set.of());
