@@ -15,7 +15,8 @@ public final class ArchitectScreen extends Screen {
  private String name="";
  private EditBox nameBox;
  private final int[] sizes={500,1000,2000,6000,0,-1};
- private String manualSize="3000";
+ private String manualSize="3000",manualWidth="1500";
+ private int chosenWidth(){if(sizes[size]!=-1)return sizes[size];try{return Integer.parseInt(manualWidth);}catch(NumberFormatException e){return -1;}}
  private int chosenSize(){if(sizes[size]!=-1)return sizes[size];try{return Integer.parseInt(manualSize);}catch(NumberFormatException e){return -1;}}
  private final String[] profiles={"worldarchitect:generic","worldarchitect:escape","worldarchitect:pokeleague","worldarchitect:fieldorders","worldarchitect:pokeworld"};
  private final String[] labels={"Construction libre","Escape From Minecraft","PokéLeague","Field Orders","PokéWorld"};
@@ -38,14 +39,15 @@ public final class ArchitectScreen extends Screen {
    nameBox=new EditBox(font,x+12,y+34,w-24,20,Component.literal("Nom du projet"));
    nameBox.setMaxLength(80);nameBox.setValue(name);nameBox.setResponder(v->name=v);addRenderableWidget(nameBox);
    button("Terrain : "+types[type],x+12,y+58,w-24,()->{type=(type+1)%4;rebuild();});
-   button("Taille : "+(sizes[size]==-1?"Manuelle":sizes[size]==0?"Illimitée":sizes[size]+" x "+sizes[size]),x+12,y+82,sizes[size]==-1?(w-28)/2:w-24,()->{size=(size+1)%sizes.length;rebuild();});
+   button("Taille : "+(sizes[size]==-1?"Manuelle":sizes[size]==0?"Illimitée":sizes[size]+" x "+sizes[size]),x+12,y+82,sizes[size]==-1?(w-32)/3:w-24,()->{size=(size+1)%sizes.length;rebuild();});
    if(sizes[size]==-1){
-    var field=new EditBox(font,x+w/2+2,y+82,(w-28)/2,20,Component.literal("Côté en blocs"));
+    var field=new EditBox(font,x+16+(w-32)/3,y+82,(w-32)/3,20,Component.literal("Côté en blocs"));
     field.setMaxLength(5);field.setFilter(v->v.matches("[0-9]*"));field.setValue(manualSize);field.setResponder(v->manualSize=v);addRenderableWidget(field);
+    var z=new EditBox(font,x+20+2*((w-32)/3),y+82,(w-32)/3,20,Component.literal("Largeur Z"));z.setMaxLength(5);z.setFilter(v->v.matches("[0-9]*"));z.setValue(manualWidth);z.setResponder(v->manualWidth=v);addRenderableWidget(z);
    }
    button("Profil : "+labels[profile],x+12,y+106,w-24,()->{profile=(profile+1)%profiles.length;rebuild();});
    button("Sauvegardes : "+(backups?"Oui":"Non"),x+12,y+130,w-24,()->{backups=!backups;rebuild();});
-   button("Créer",x+12,y+158,(w-28)/2,()->{if(!name.isBlank()&&type!=3&&(sizes[size]!=-1||(chosenSize()>=16&&chosenSize()<=60000))){ProjectPackets.request(new ProjectPackets.Action("create",name,Project.WorldType.values()[type],chosenSize(),profiles[profile],backups));creating=false;name="";rebuild();}});
+   button("Créer",x+12,y+158,(w-28)/2,()->{if(!name.isBlank()&&type!=3&&(sizes[size]!=-1||(chosenSize()>=16&&chosenSize()<=60000&&chosenWidth()>=16&&chosenWidth()<=60000))){ProjectPackets.request(new ProjectPackets.Action("create",name,Project.WorldType.values()[type],chosenSize(),profiles[profile],backups,chosenWidth()));creating=false;name="";rebuild();}});
    button("Retour",x+w/2+2,y+158,(w-28)/2,()->{creating=false;rebuild();});
   }
  }
@@ -69,7 +71,7 @@ public final class ArchitectScreen extends Screen {
     g.drawString(font,status,x+w-18-sw,yy+5,ready?0xffa6c878:0xffdfc17b);
    }
   }else if(type==3)g.drawCenteredString(font,"Importation indisponible pour le moment",width/2,y+184,TEXT);
-  else if(sizes[size]==-1)g.drawCenteredString(font,"Taille manuelle : 16 à 60 000 blocs par côté",width/2,y+184,TEXT);
+  else if(sizes[size]==-1)g.drawCenteredString(font,"Longueur X / Largeur Z : 16 à 60 000 blocs",width/2,y+184,TEXT);
   else g.drawCenteredString(font,"Création des paramètres uniquement",width/2,y+184,TEXT);
   super.render(g,mx,my,delta);
  }
