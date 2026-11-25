@@ -20,10 +20,9 @@ public final class ProjectService {
    ProjectRegistry registry = new ProjectRegistry(server.getWorldPath(LevelResource.ROOT).resolve("worldarchitect"));
    REGISTRIES.put(server, registry);
    for (Project project : registry.list()) {
-    var key=net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION,net.minecraft.resources.ResourceLocation.parse(project.dimensionId().toString()));
+    var key=net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION,net.minecraft.resources.ResourceLocation.parse(project.dimensionId()));
     var level=server.getLevel(key);
     if(level!=null){
-     level.getWorldBorder().setCenter(0,0);
      ProjectWorlds.configureBorder(level,project);
     }else com.mojang.logging.LogUtils.getLogger().info("Project {} dimension not loaded; restart with project datapack enabled",project.id());
     if (project.worldType() == Project.WorldType.IMPORTED) continue;
