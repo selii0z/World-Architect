@@ -8,8 +8,16 @@ import fr.worldarchitect.network.ProjectPackets;
 import fr.worldarchitect.project.Project;
 public final class ArchitectScreen extends Screen {
  private static final int BG=0xff1c201b,PANEL=0xff2c3427,ACCENT=0xffb6c69c,TEXT=0xffe9eadf;
- private boolean creating=false, backups=true, selecting=false;
+ private boolean creating=false, backups=true, selecting=false, library=false;
  private java.util.UUID selected;
+ private String librarySearch="";
+ private int libraryPage=0;
+ private java.util.List<fr.worldarchitect.project.StructureLibrary.Metadata> filtered(){
+  var r=ProjectPackets.latest();
+  if(r==null||r.structures()==null)return java.util.List.of();
+  String q=librarySearch.toLowerCase(java.util.Locale.ROOT);
+  return r.structures().stream().filter(s->(s.name()+" "+s.category()).toLowerCase(java.util.Locale.ROOT).contains(q)).toList();
+ }
  private void action(String action){ProjectPackets.request(new ProjectPackets.Action(action,selected==null?null:selected.toString(),null,0,null,false));}
  private int type=0,size=2,profile=0,page=0;
  private String name="", prefabName="", prefabCategory="Bâtiments";
@@ -27,7 +35,14 @@ public final class ArchitectScreen extends Screen {
  private void button(String label,int x,int y,int w,Runnable action){addRenderableWidget(Button.builder(Component.literal(label),b->action.run()).bounds(x,y,w,20).build());}
  @Override protected void init(){
   int w=Math.min(340,width-24),x=(width-w)/2,y=height/2-105;
-  if(selecting){
+  if(library){
+   var search=new EditBox(font,x+12,y+30,w-24,20,Component.literal("Recherche"));
+   search.setHint(Component.literal("Nom ou catégorie"));search.setValue(librarySearch);search.setResponder(v->{librarySearch=v;libraryPage=0;});addRenderableWidget(search);
+   button("<",x+12,y+158,30,()->libraryPage=Math.max(0,libraryPage-1));
+   button(">",x+w-42,y+158,30,()->{if((libraryPage+1)*4<filtered().size())libraryPage++;});
+   button("Actualiser",x+48,y+158,w-96,()->action("library"));
+   button("Retour",x+12,y+192,w-24,()->{library=false;rebuild();});
+  }else if(selecting){
    button("Définir le point A",x+12,y+34,w-24,()->action("select_first"));
    button("Définir le point B",x+12,y+58,w-24,()->action("select_second"));
    button("Effacer la sélection",x+12,y+82,w-24,()->action("select_clear"));
@@ -46,7 +61,8 @@ public final class ArchitectScreen extends Screen {
    button("Visiter",x+12,y+168,(w-28)/2,()->{var r=ProjectPackets.latest();if(selected!=null&&r!=null&&r.ready()!=null&&r.ready().contains(selected))action("visit");});
    button("Quitter le projet",x+48,y+118,w-96,()->action("leave"));
    button("Fermer",x+w/2+2,y+168,(w-28)/2,this::onClose);
-   button("Sélection de bâtiments",x+12,y+192,w-24,()->{selecting=true;rebuild();});
+   button("Sélection",x+12,y+192,(w-28)/2,()->{selecting=true;rebuild();});
+   button("Bibliothèque",x+w/2+2,y+192,(w-28)/2,()->{library=true;libraryPage=0;rebuild();action("library");});
    refresh();
   }else{
    nameBox=new EditBox(font,x+12,y+34,w-24,20,Component.literal("Nom du projet"));
@@ -68,8 +84,18 @@ public final class ArchitectScreen extends Screen {
   g.fill(0,0,width,height,BG);
   int w=Math.min(340,width-24),x=(width-w)/2,y=height/2-105;
   g.fill(x,y,x+w,y+218,PANEL);
-  g.drawCenteredString(font,selecting?"SÉLECTION DE BÂTIMENT":creating?"NOUVEAU PROJET":"WORLD ARCHITECT",width/2,y+10,ACCENT);
-  if(selecting){
+  g.drawCenteredString(font,library?"BIBLIOTHÈQUE":selecting?"SÉLECTION DE BÂTIMENT":creating?"NOUVEAU PROJET":"WORLD ARCHITECT",width/2,y+10,ACCENT);
+  if(library){
+   var entries=filtered();
+   if(entries.isEmpty())g.drawCenteredString(font,"Aucun bâtiment correspondant",width/2,y+90,TEXT);
+   for(int i=libraryPage*4;i<Math.min(entries.size(),libraryPage*4+4);i++){
+    var s=entries.get(i);int yy=y+54+(i-libraryPage*4)*25;
+    g.fill(x+12,yy,x+w-12,yy+23,BG);
+    g.drawString(font,font.plainSubstrByWidth(s.name(),w-36),x+18,yy+2,ACCENT);
+    g.drawString(font,font.plainSubstrByWidth(s.category()+" | "+s.width()+" x "+s.height()+" x "+s.depth(),w-36),x+18,yy+12,TEXT);
+   }
+   g.drawCenteredString(font,entries.size()+" bâtiments",width/2,y+182,TEXT);
+  }else if(selecting){
    var r=ProjectPackets.latest();
    if(r!=null)g.drawCenteredString(font,font.plainSubstrByWidth(r.message(),w-24),width/2,y+186,r.success()?ACCENT:0xffdf8b80);
    g.drawCenteredString(font,"Les points utilisent votre position actuelle",width/2,y+200,TEXT);
@@ -93,7 +119,7 @@ public final class ArchitectScreen extends Screen {
   super.render(g,mx,my,delta);
  }
  @Override public boolean mouseClicked(double mx,double my,int button){
-  if(!creating&&!selecting&&button==0){
+  if(!creating&&!selecting&&!library&&button==0){
    int w=Math.min(340,width-24),x=(width-w)/2,y=height/2-105;
    var r=ProjectPackets.latest();
    if(r!=null&&r.success()&&mx>=x+12&&mx<x+w-12&&my>=y+30&&my<y+114){
