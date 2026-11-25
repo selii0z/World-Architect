@@ -38,7 +38,11 @@ public final class ProjectPackets {
  }
  private static void handle(Request packet,IPayloadContext context){
   context.enqueueWork(()->{
-   if(!(context.player() instanceof ServerPlayer player)||!player.hasPermissions(2)) return;
+   if(!(context.player() instanceof ServerPlayer player)) return;
+   if(!player.hasPermissions(2)) {
+    PacketDistributor.sendToPlayer(player,new Reply(GSON.toJson(new Result(false,"Accès réservé aux administrateurs",java.util.List.of(),java.util.Set.of()))));
+    return;
+   }
    Result result;
    try{
     Action a=GSON.fromJson(packet.json(),Action.class);
@@ -50,7 +54,10 @@ public final class ProjectPackets {
     var ready=new java.util.HashSet<java.util.UUID>();
     for(var project:projects) if(ProjectService.isReady(player,project.id())) ready.add(project.id());
     result=new Result(true,"OK",projects,ready);
-   }catch(Exception ex){result=new Result(false,"Impossible de traiter le projet",java.util.List.of(),java.util.Set.of());}
+   }catch(Exception ex){
+    com.mojang.logging.LogUtils.getLogger().warn("World Architect request failed for {}",player.getUUID(),ex);
+    result=new Result(false,"Impossible de traiter le projet",java.util.List.of(),java.util.Set.of());
+   }
    PacketDistributor.sendToPlayer(player,new Reply(GSON.toJson(result)));
   });
  }
