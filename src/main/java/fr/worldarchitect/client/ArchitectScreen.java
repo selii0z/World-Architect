@@ -12,7 +12,7 @@ public final class ArchitectScreen extends Screen {
  private java.util.UUID selected;
  private void action(String action){ProjectPackets.request(new ProjectPackets.Action(action,selected==null?null:selected.toString(),null,0,null,false));}
  private int type=0,size=2,profile=0,page=0;
- private String name="";
+ private String name="", prefabName="", prefabCategory="Bâtiments";
  private EditBox nameBox;
  private final int[] sizes={500,1000,2000,6000,0,-1};
  private String manualSize="3000",manualWidth="1500";
@@ -31,8 +31,14 @@ public final class ArchitectScreen extends Screen {
    button("Définir le point A",x+12,y+34,w-24,()->action("select_first"));
    button("Définir le point B",x+12,y+58,w-24,()->action("select_second"));
    button("Effacer la sélection",x+12,y+82,w-24,()->action("select_clear"));
-   button("Revenir au jeu",x+12,y+130,w-24,this::onClose);
-   button("Retour aux projets",x+12,y+158,w-24,()->{selecting=false;rebuild();});
+   int half=(w-28)/2;
+   var prefab=new EditBox(font,x+12,y+106,half,20,Component.literal("Nom du bâtiment"));
+   prefab.setMaxLength(80);prefab.setHint(Component.literal("Nom du bâtiment"));prefab.setValue(prefabName);prefab.setResponder(v->prefabName=v);addRenderableWidget(prefab);
+   var category=new EditBox(font,x+w/2+2,y+106,half,20,Component.literal("Catégorie"));
+   category.setMaxLength(60);category.setValue(prefabCategory);category.setResponder(v->prefabCategory=v);addRenderableWidget(category);
+   button("Enregistrer dans la bibliothèque",x+12,y+130,w-24,()->{if(!prefabName.isBlank()&&!prefabCategory.isBlank())ProjectPackets.request(new ProjectPackets.Action("capture_structure",prefabName,null,0,prefabCategory,false));});
+   button("Revenir au jeu",x+12,y+158,half,this::onClose);
+   button("Retour aux projets",x+w/2+2,y+158,half,()->{selecting=false;rebuild();});
   }else if(!creating){
    button("+ Créer un nouveau projet",x+12,y+144,w-24,()->{creating=true;rebuild();});
    button("<",x+12,y+118,30,()->page=Math.max(0,page-1));
@@ -65,8 +71,8 @@ public final class ArchitectScreen extends Screen {
   g.drawCenteredString(font,selecting?"SÉLECTION DE BÂTIMENT":creating?"NOUVEAU PROJET":"WORLD ARCHITECT",width/2,y+10,ACCENT);
   if(selecting){
    var r=ProjectPackets.latest();
-   if(r!=null)g.drawCenteredString(font,font.plainSubstrByWidth(r.message(),w-24),width/2,y+108,r.success()?ACCENT:0xffdf8b80);
-   g.drawCenteredString(font,"Les points utilisent votre position actuelle",width/2,y+186,TEXT);
+   if(r!=null)g.drawCenteredString(font,font.plainSubstrByWidth(r.message(),w-24),width/2,y+186,r.success()?ACCENT:0xffdf8b80);
+   g.drawCenteredString(font,"Les points utilisent votre position actuelle",width/2,y+200,TEXT);
   }else if(!creating){
    var r=ProjectPackets.latest();
    if(r==null)g.drawCenteredString(font,"Chargement...",width/2,y+48,TEXT);
