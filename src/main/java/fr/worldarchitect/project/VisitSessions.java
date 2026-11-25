@@ -38,7 +38,7 @@ public final class VisitSessions {
  }
  @SubscribeEvent public static void login(PlayerEvent.PlayerLoggedInEvent event){
   if(event.getEntity() instanceof ServerPlayer player){
-   try {leave(player);} catch(Exception e){
+   try {ConstructionSessions.leave(player);} catch(Exception e){
     com.mojang.logging.LogUtils.getLogger().error("Visit recovery failed for {}",player.getUUID(),e);
     player.sendSystemMessage(net.minecraft.network.chat.Component.literal("World Architect : récupération impossible, journal conservé."));
    }
