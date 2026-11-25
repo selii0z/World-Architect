@@ -50,7 +50,13 @@ public final class ProjectPackets {
     String message="OK";
     if("select_first".equals(a.action())||"select_second".equals(a.action())){
      var selection=SELECTIONS.set(player,player.blockPosition(),"select_first".equals(a.action()));
-     message=selection.complete()?"Sélection complète : "+selection.volume()+" blocs":"Premier point de sélection enregistré";
+     message=selection.complete()?"Sélection complète : "+selection.volume()+" blocs":"Point de sélection enregistré";
+    }
+    else if("capture_structure".equals(a.action())){
+     var selection=SELECTIONS.get(player.getUUID());
+     if(selection==null||!selection.complete())throw new IllegalArgumentException("Selection incomplete");
+     fr.worldarchitect.project.StructureLibrary.capture(player.serverLevel(),selection,a.name(),a.profile());
+     message="Bâtiment enregistré dans la bibliothèque";
     }
     else if("select_clear".equals(a.action())){
      SELECTIONS.clear(player.getUUID());
