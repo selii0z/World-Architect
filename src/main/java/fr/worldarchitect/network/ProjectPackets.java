@@ -36,7 +36,7 @@ public final class ProjectPackets {
  private static final java.util.Map<Integer,java.util.List<fr.worldarchitect.project.StructureLibrary.PreviewBlock>> ghostParts=new java.util.HashMap<>();
  private static String ghostId;
  private static java.util.List<fr.worldarchitect.project.StructureLibrary.PreviewBlock> ghostBlocks=java.util.List.of();
- public static java.util.List<fr.worldarchitect.project.StructureLibrary.PreviewBlock> ghostBlocks(){return ghostBlocks;}
+ public static java.util.List<fr.worldarchitect.project.StructureLibrary.PreviewBlock> ghostBlocks(String structure){return activePreview!=null&&structure.equals(activePreview.name())&&structure.equals(ghostId)?ghostBlocks:java.util.List.of();}
  private static void acceptGhost(GhostChunk chunk){
   if(activePreview==null||!chunk.structure().equals(activePreview.name())||chunk.total()<1||chunk.total()>256||chunk.index()<0||chunk.index()>=chunk.total())return;
   if(!chunk.structure().equals(ghostId)){ghostId=chunk.structure();ghostParts.clear();ghostBlocks=java.util.List.of();}
@@ -48,7 +48,7 @@ public final class ProjectPackets {
   }
  }
  public record Action(String action,String name,Project.WorldType worldType,int size,String profile,boolean automaticBackups,int width){public Action(String action,String name,Project.WorldType worldType,int size,String profile,boolean automaticBackups){this(action,name,worldType,size,profile,automaticBackups,size);}}
- public record PreviewBounds(String dimension,int minX,int minY,int minZ,int maxX,int maxY,int maxZ,boolean valid){}
+ public record PreviewBounds(String dimension,int minX,int minY,int minZ,int maxX,int maxY,int maxZ,boolean valid,String structure,int anchorX,int anchorY,int anchorZ,String rotation,boolean mirrored){}
  public record Result(boolean success,String message,java.util.List<Project> projects,java.util.Set<java.util.UUID> ready,java.util.List<fr.worldarchitect.project.StructureLibrary.Metadata> structures,PreviewBounds preview){public Result(boolean success,String message,java.util.List<Project> projects,java.util.Set<java.util.UUID> ready){this(success,message,projects,ready,java.util.List.of(),null);}}
  private static final fr.worldarchitect.project.StructureSelection SELECTIONS=new fr.worldarchitect.project.StructureSelection();
  private static volatile Action activePreview;
@@ -60,11 +60,11 @@ public final class ProjectPackets {
   int index=net.minecraft.world.level.block.Rotation.valueOf(a.profile()).ordinal();
   request(new Action("preview_structure",a.name(),null,0,rotations[Math.floorMod(index+rotationDelta,rotations.length)].name(),a.automaticBackups()^flip));
  }
- public static void cancelPreview(){activePreview=null;latest=null;request(new Action("library",null,null,0,null,false));}
+ public static void cancelPreview(){resetClientPreview();request(new Action("library",null,null,0,null,false));}
  private static volatile Result latest;
  public static Result latest(){return latest;}
  @SubscribeEvent public static void register(RegisterPayloadHandlersEvent e){
-  var r=e.registrar("8");
+  var r=e.registrar("9");
   r.playToClient(GhostReply.TYPE,GhostReply.CODEC,(p,c)->c.enqueueWork(()->acceptGhost(GSON.fromJson(p.json(),GhostChunk.class))));
   r.playToServer(Request.TYPE,Request.CODEC,ProjectPackets::handle);
   r.playToClient(Reply.TYPE,Reply.CODEC,(p,c)->c.enqueueWork(()->latest=GSON.fromJson(p.json(),Result.class)));
@@ -91,7 +91,7 @@ public final class ProjectPackets {
      var plan=fr.worldarchitect.project.StructurePlacement.previewGeometry(player.serverLevel(),java.util.UUID.fromString(a.name()),anchor,rotation,mirror);
      boolean valid=true;
      try{fr.worldarchitect.project.StructurePlacement.validateBounds(player.serverLevel(),plan);}catch(IllegalArgumentException ex){valid=false;}
-     preview=new PreviewBounds(player.serverLevel().dimension().location().toString(),plan.min().getX(),plan.min().getY(),plan.min().getZ(),plan.max().getX(),plan.max().getY(),plan.max().getZ(),valid);
+     preview=new PreviewBounds(player.serverLevel().dimension().location().toString(),plan.min().getX(),plan.min().getY(),plan.min().getZ(),plan.max().getX(),plan.max().getY(),plan.max().getZ(),valid,a.name(),anchor.getX(),anchor.getY(),anchor.getZ(),rotation.name(),a.automaticBackups());
      message=(valid?"Aperçu valide : ":"Placement interdit : ")+(plan.max().getX()-plan.min().getX()+1)+" x "+(plan.max().getY()-plan.min().getY()+1)+" x "+(plan.max().getZ()-plan.min().getZ()+1);
      structures=fr.worldarchitect.project.StructureLibrary.list(player.serverLevel());
     }
