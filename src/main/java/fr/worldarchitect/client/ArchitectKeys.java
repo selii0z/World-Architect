@@ -13,9 +13,14 @@ public final class ArchitectKeys {
  static final KeyMapping POINT_A = new KeyMapping("World Architect : point A",InputConstants.Type.KEYSYM,GLFW.GLFW_KEY_UNKNOWN,"key.categories.worldarchitect");
  static final KeyMapping POINT_B = new KeyMapping("World Architect : point B",InputConstants.Type.KEYSYM,GLFW.GLFW_KEY_UNKNOWN,"key.categories.worldarchitect");
  static final KeyMapping CLEAR = new KeyMapping("World Architect : effacer la sélection",InputConstants.Type.KEYSYM,GLFW.GLFW_KEY_UNKNOWN,"key.categories.worldarchitect");
+ static final KeyMapping ROTATE = previewKey("Tourner le bâtiment");
+ static final KeyMapping MIRROR = previewKey("Inverser le bâtiment");
+ static final KeyMapping MOVE = previewKey("Déplacer l'aperçu ici");
+ static final KeyMapping CANCEL = previewKey("Annuler l'aperçu");
+ private static KeyMapping previewKey(String name){return new KeyMapping("World Architect : "+name,InputConstants.Type.KEYSYM,GLFW.GLFW_KEY_UNKNOWN,"key.categories.worldarchitect");}
  @EventBusSubscriber(modid="worldarchitect", value=Dist.CLIENT, bus=EventBusSubscriber.Bus.MOD)
  public static class Registration {
-  @SubscribeEvent public static void register(RegisterKeyMappingsEvent e) { e.register(OPEN); e.register(POINT_A); e.register(POINT_B); e.register(CLEAR); }
+  @SubscribeEvent public static void register(RegisterKeyMappingsEvent e) { e.register(OPEN); e.register(POINT_A); e.register(POINT_B); e.register(CLEAR); e.register(ROTATE); e.register(MIRROR); e.register(MOVE); e.register(CANCEL); }
  }
  @EventBusSubscriber(modid="worldarchitect", value=Dist.CLIENT)
  public static class Input {
@@ -26,10 +31,18 @@ public final class ArchitectKeys {
     while(POINT_A.consumeClick())send("select_first");
     while(POINT_B.consumeClick())send("select_second");
     while(CLEAR.consumeClick())send("select_clear");
+    while(ROTATE.consumeClick())fr.worldarchitect.network.ProjectPackets.manipulatePreview(1,false);
+    while(MIRROR.consumeClick())fr.worldarchitect.network.ProjectPackets.manipulatePreview(0,true);
+    while(MOVE.consumeClick())fr.worldarchitect.network.ProjectPackets.manipulatePreview(0,false);
+    while(CANCEL.consumeClick())fr.worldarchitect.network.ProjectPackets.cancelPreview();
    }else{
     while(POINT_A.consumeClick()){}
     while(POINT_B.consumeClick()){}
     while(CLEAR.consumeClick()){}
+    while(ROTATE.consumeClick()){}
+    while(MIRROR.consumeClick()){}
+    while(MOVE.consumeClick()){}
+    while(CANCEL.consumeClick()){}
    }
    while (OPEN.consumeClick()) {
     Minecraft mc = Minecraft.getInstance();
