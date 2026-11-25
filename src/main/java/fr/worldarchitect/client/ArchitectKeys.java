@@ -19,7 +19,7 @@ public final class ArchitectKeys {
   @SubscribeEvent public static void tick(ClientTickEvent.Post e) {
    while (OPEN.consumeClick()) {
     Minecraft mc = Minecraft.getInstance();
-    if (mc.player != null && mc.screen == null && mc.player.hasPermissions(2)) mc.setScreen(new ArchitectScreen());
+    if (mc.player != null && mc.screen == null) mc.setScreen(new ArchitectScreen());
    }
   }
  }
