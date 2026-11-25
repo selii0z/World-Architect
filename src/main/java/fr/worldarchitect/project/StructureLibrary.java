@@ -58,6 +58,8 @@ public final class StructureLibrary {
   BlockPos min=selection.min(),max=selection.max();
   if(min.getY()<level.getMinBuildHeight()||max.getY()>=level.getMaxBuildHeight())throw new IllegalArgumentException("Outside build height");
   if(!level.getWorldBorder().isWithinBounds(min)||!level.getWorldBorder().isWithinBounds(max))throw new IllegalArgumentException("Outside world border");
+  var project=ProjectService.forLevel(level).orElseThrow(()->new IllegalStateException("Not a project dimension"));
+  if(!project.bounds().contains(min.getX()+0.5,min.getZ()+0.5)||!project.bounds().contains(max.getX()+0.5,max.getZ()+0.5))throw new IllegalArgumentException("Selection outside project bounds");
   for(int x=min.getX()>>4;x<=max.getX()>>4;x++)for(int z=min.getZ()>>4;z<=max.getZ()>>4;z++)
    if(!level.hasChunk(x,z))throw new IllegalStateException("Selection contains unloaded chunks");
   BlockPos size=new BlockPos(max.getX()-min.getX()+1,max.getY()-min.getY()+1,max.getZ()-min.getZ()+1);
