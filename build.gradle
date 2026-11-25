@@ -1,0 +1,5 @@
+plugins { id 'java'; id 'net.neoforged.moddev' version '2.0.107' }
+version = '0.1.0-dev'
+group = 'fr.worldarchitect'
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+neoForge { version = '21.1.249'; runs { client { client() }; server { server() } }; mods { worldarchitect { sourceSet sourceSets.main } } }
