@@ -40,11 +40,21 @@ public final class StructurePlacement {
  }
  public record Plan(UUID structure,BlockPos anchor,Rotation rotation,Mirror mirror,BlockPos min,BlockPos max){}
  public static Plan preview(ServerLevel level,UUID id,BlockPos anchor,Rotation rotation,Mirror mirror) throws IOException {
+  var plan=previewGeometry(level,id,anchor,rotation,mirror);
+  validateBounds(level,plan);
+  return plan;
+ }
+ public static Plan previewGeometry(ServerLevel level,UUID id,BlockPos anchor,Rotation rotation,Mirror mirror) throws IOException {
+  ProjectService.forLevel(level).orElseThrow(()->new IllegalStateException("Not a project dimension"));
   var template=StructureLibrary.load(level,id);
   var settings=new StructurePlaceSettings().setRotation(rotation).setMirror(mirror).setIgnoreEntities(true);
   var bounds=template.getBoundingBox(settings,anchor);
   var min=new BlockPos(bounds.minX(),bounds.minY(),bounds.minZ());
   var max=new BlockPos(bounds.maxX(),bounds.maxY(),bounds.maxZ());
+  return new Plan(id,anchor.immutable(),rotation,mirror,min,max);
+ }
+ public static void validateBounds(ServerLevel level,Plan plan){
+  var min=plan.min();var max=plan.max();
   if(min.getY()<level.getMinBuildHeight()||max.getY()>=level.getMaxBuildHeight())throw new IllegalArgumentException("Outside build height");
   if(!level.getWorldBorder().isWithinBounds(min)||!level.getWorldBorder().isWithinBounds(max))throw new IllegalArgumentException("Outside world border");
   var project=ProjectService.forLevel(level).orElseThrow(()->new IllegalStateException("Not a project dimension"));
@@ -53,6 +63,5 @@ public final class StructurePlacement {
    if(!rectangle.contains(min.getX()+0.5,min.getZ()+0.5)||!rectangle.contains(max.getX()+0.5,max.getZ()+0.5))
     throw new IllegalArgumentException("Structure extends outside project bounds");
   }
-  return new Plan(id,anchor.immutable(),rotation,mirror,min,max);
  }
 }
