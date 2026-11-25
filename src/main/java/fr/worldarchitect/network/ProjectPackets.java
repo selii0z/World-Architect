@@ -31,6 +31,14 @@ public final class ProjectPackets {
  public record PreviewBounds(String dimension,int minX,int minY,int minZ,int maxX,int maxY,int maxZ,boolean valid){}
  public record Result(boolean success,String message,java.util.List<Project> projects,java.util.Set<java.util.UUID> ready,java.util.List<fr.worldarchitect.project.StructureLibrary.Metadata> structures,PreviewBounds preview){public Result(boolean success,String message,java.util.List<Project> projects,java.util.Set<java.util.UUID> ready){this(success,message,projects,ready,java.util.List.of(),null);}}
  private static final fr.worldarchitect.project.StructureSelection SELECTIONS=new fr.worldarchitect.project.StructureSelection();
+ private static volatile Action activePreview;
+ public static void manipulatePreview(int rotationDelta,boolean flip){
+  var a=activePreview;if(a==null)return;
+  var rotations=net.minecraft.world.level.block.Rotation.values();
+  int index=net.minecraft.world.level.block.Rotation.valueOf(a.profile()).ordinal();
+  request(new Action("preview_structure",a.name(),null,0,rotations[Math.floorMod(index+rotationDelta,rotations.length)].name(),a.automaticBackups()^flip));
+ }
+ public static void cancelPreview(){activePreview=null;latest=null;request(new Action("library",null,null,0,null,false));}
  private static volatile Result latest;
  public static Result latest(){return latest;}
  @SubscribeEvent public static void register(RegisterPayloadHandlersEvent e){
@@ -94,5 +102,5 @@ public final class ProjectPackets {
    PacketDistributor.sendToPlayer(player,new Reply(GSON.toJson(result)));
   });
  }
- public static void request(Action action){PacketDistributor.sendToServer(new Request(GSON.toJson(action)));}
+ public static void request(Action action){if("preview_structure".equals(action.action()))activePreview=action;else if("leave".equals(action.action()))activePreview=null;PacketDistributor.sendToServer(new Request(GSON.toJson(action)));}
 }
