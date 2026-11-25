@@ -13,11 +13,20 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 @EventBusSubscriber(modid="worldarchitect",value=Dist.CLIENT)
 public final class PreviewRenderer {
  private PreviewRenderer(){}
+ private static java.util.List<fr.worldarchitect.project.StructureLibrary.PreviewBlock> indexedSource;
+ private static final java.util.Map<net.minecraft.core.BlockPos,java.util.List<fr.worldarchitect.project.StructureLibrary.PreviewBlock>> sections=new java.util.HashMap<>();
+ private static void index(java.util.List<fr.worldarchitect.project.StructureLibrary.PreviewBlock> blocks){
+  if(indexedSource==blocks)return;
+  indexedSource=blocks;sections.clear();
+  for(var b:blocks){var o=b.offset();var key=new net.minecraft.core.BlockPos(o.getX()>>4,o.getY()>>4,o.getZ()>>4);
+   sections.computeIfAbsent(key,k->new java.util.ArrayList<>()).add(b);}
+ }
+
  @SubscribeEvent public static void render(RenderLevelStageEvent event){
   if(event.getStage()!=RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS)return;
   var mc=Minecraft.getInstance();
   var result=ProjectPackets.latest();
-  if(mc.level==null||result==null||!result.success()||result.preview()==null)return;
+  if(mc.level==null||result==null||!result.success()||result.preview()==null){index(java.util.List.of());return;}
   var p=result.preview();
   if(!mc.level.dimension().location().toString().equals(p.dimension()))return;
   var camera=event.getCamera().getPosition();
@@ -26,17 +35,25 @@ public final class PreviewRenderer {
   LevelRenderer.renderLineBox(event.getPoseStack(),buffers.getBuffer(RenderType.lines()),box,p.valid()?0.35f:1f,p.valid()?1f:0.2f,0.35f,0.9f);
   buffers.endBatch(RenderType.lines());
   var blocks=ProjectPackets.ghostBlocks(p.structure());
-  // Limit immediate model rendering; large prefabs retain their complete boundary.
-  if(blocks.size()>4096)return;
+  index(blocks);
   var rotation=net.minecraft.world.level.block.Rotation.valueOf(p.rotation());
   var mirror=p.mirrored()?net.minecraft.world.level.block.Mirror.FRONT_BACK:net.minecraft.world.level.block.Mirror.NONE;
   var anchor=new net.minecraft.core.BlockPos(p.anchorX(),p.anchorY(),p.anchorZ());
   var pose=event.getPoseStack();
   var ghostBuffer=buffers.getBuffer(RenderType.translucent());
-  for(var block:blocks){
+  var candidates=new java.util.ArrayList<>(sections.entrySet());
+  candidates.sort(java.util.Comparator.comparingDouble(entry->{
+   var center=entry.getKey().multiply(16).offset(8,8,8);
+   var world=net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate.transform(center,mirror,rotation,net.minecraft.core.BlockPos.ZERO).offset(anchor);
+   return world.distToCenterSqr(camera.x,camera.y,camera.z);
+  }));
+  int rendered=0;
+  outer: for(var section:candidates)for(var block:section.getValue()){
    var pos=net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate.transform(block.offset(),mirror,rotation,net.minecraft.core.BlockPos.ZERO).offset(anchor);
    if(pos.distToCenterSqr(camera.x,camera.y,camera.z)>96*96)continue;
    var state=net.minecraft.world.level.block.Block.stateById(block.stateId()).mirror(mirror).rotate(rotation);
+   if(rendered>=4096)break outer;
+   rendered++;
    pose.pushPose();
    try{
     pose.translate(pos.getX()-camera.x,pos.getY()-camera.y,pos.getZ()-camera.z);
