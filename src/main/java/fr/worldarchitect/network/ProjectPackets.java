@@ -28,11 +28,11 @@ public final class ProjectPackets {
   public Type<Reply> type(){return TYPE;}
  }
  public record Action(String action,String name,Project.WorldType worldType,int size,String profile,boolean automaticBackups){}
- public record Result(boolean success,String message,java.util.List<Project> projects){}
+ public record Result(boolean success,String message,java.util.List<Project> projects,java.util.Set<java.util.UUID> ready){}
  private static volatile Result latest;
  public static Result latest(){return latest;}
  @SubscribeEvent public static void register(RegisterPayloadHandlersEvent e){
-  var r=e.registrar("1");
+  var r=e.registrar("2");
   r.playToServer(Request.TYPE,Request.CODEC,ProjectPackets::handle);
   r.playToClient(Reply.TYPE,Reply.CODEC,(p,c)->c.enqueueWork(()->latest=GSON.fromJson(p.json(),Result.class)));
  }
@@ -44,8 +44,11 @@ public final class ProjectPackets {
     Action a=GSON.fromJson(packet.json(),Action.class);
     if("create".equals(a.action())) ProjectService.create(player,a.name(),a.worldType(),a.size(),a.profile(),a.automaticBackups());
     else if(!"list".equals(a.action())) throw new IllegalArgumentException("Unknown action");
-    result=new Result(true,"OK",ProjectService.list(player));
-   }catch(Exception ex){result=new Result(false,"Impossible de traiter le projet",java.util.List.of());}
+    var projects=ProjectService.list(player);
+    var ready=new java.util.HashSet<java.util.UUID>();
+    for(var project:projects) if(ProjectService.isReady(player,project.id())) ready.add(project.id());
+    result=new Result(true,"OK",projects,ready);
+   }catch(Exception ex){result=new Result(false,"Impossible de traiter le projet",java.util.List.of(),java.util.Set.of());}
    PacketDistributor.sendToPlayer(player,new Reply(GSON.toJson(result)));
   });
  }
