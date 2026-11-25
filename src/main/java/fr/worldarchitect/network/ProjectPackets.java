@@ -60,6 +60,14 @@ public final class ProjectPackets {
   int index=net.minecraft.world.level.block.Rotation.valueOf(a.profile()).ordinal();
   request(new Action("preview_structure",a.name(),null,0,rotations[Math.floorMod(index+rotationDelta,rotations.length)].name(),a.automaticBackups()^flip));
  }
+ public static void confirmPreview(){
+  var a=activePreview;var r=latest;
+  if(a==null||r==null||r.preview()==null||!r.preview().valid())return;
+  var p=r.preview();
+  if(!a.name().equals(p.structure())||!a.profile().equals(p.rotation())||a.automaticBackups()!=p.mirrored())return;
+  var target=p.anchorX()+","+p.anchorY()+","+p.anchorZ()+","+p.rotation();
+  request(new Action("place_structure",p.structure(),null,0,target,p.mirrored()));
+ }
  public static void cancelPreview(){resetClientPreview();request(new Action("library",null,null,0,null,false));}
  private static volatile Result latest;
  public static Result latest(){return latest;}
@@ -94,6 +102,18 @@ public final class ProjectPackets {
      preview=new PreviewBounds(player.serverLevel().dimension().location().toString(),plan.min().getX(),plan.min().getY(),plan.min().getZ(),plan.max().getX(),plan.max().getY(),plan.max().getZ(),valid,a.name(),anchor.getX(),anchor.getY(),anchor.getZ(),rotation.name(),a.automaticBackups());
      message=(valid?"Aperçu valide : ":"Placement interdit : ")+(plan.max().getX()-plan.min().getX()+1)+" x "+(plan.max().getY()-plan.min().getY()+1)+" x "+(plan.max().getZ()-plan.min().getZ()+1);
      structures=fr.worldarchitect.project.StructureLibrary.list(player.serverLevel());
+    }
+    else if("place_structure".equals(a.action())){
+     fr.worldarchitect.project.ConstructionSessions.requireEditor(player);
+     var parts=a.profile().split(",",-1);
+     if(parts.length!=4)throw new IllegalArgumentException("Invalid placement");
+     var anchor=new net.minecraft.core.BlockPos(Integer.parseInt(parts[0]),Integer.parseInt(parts[1]),Integer.parseInt(parts[2]));
+     if(anchor.distToCenterSqr(player.getX(),player.getY(),player.getZ())>36*36)throw new IllegalArgumentException("Placement too far");
+     var rotation=net.minecraft.world.level.block.Rotation.valueOf(parts[3]);
+     var mirror=a.automaticBackups()?net.minecraft.world.level.block.Mirror.FRONT_BACK:net.minecraft.world.level.block.Mirror.NONE;
+     var plan=fr.worldarchitect.project.StructurePlacement.preview(player.serverLevel(),java.util.UUID.fromString(a.name()),anchor,rotation,mirror);
+     fr.worldarchitect.project.ProjectEdits.place(player,plan,false);
+     message="Bâtiment placé";
     }
     else if("undo_edit".equals(a.action())){
      message=fr.worldarchitect.project.ProjectEdits.undo(player)?"Modification annulée":"Aucune modification à annuler";
