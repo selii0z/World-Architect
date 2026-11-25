@@ -27,12 +27,12 @@ public final class ProjectPackets {
   public static final StreamCodec<RegistryFriendlyByteBuf,Reply> CODEC = StreamCodec.of((b,p)->b.writeUtf(p.json(),262144),b->new Reply(b.readUtf(262144)));
   public Type<Reply> type(){return TYPE;}
  }
- public record Action(String action,String name,Project.WorldType worldType,int size,String profile,boolean automaticBackups){}
+ public record Action(String action,String name,Project.WorldType worldType,int size,String profile,boolean automaticBackups,int width){public Action(String action,String name,Project.WorldType worldType,int size,String profile,boolean automaticBackups){this(action,name,worldType,size,profile,automaticBackups,size);}}
  public record Result(boolean success,String message,java.util.List<Project> projects,java.util.Set<java.util.UUID> ready){}
  private static volatile Result latest;
  public static Result latest(){return latest;}
  @SubscribeEvent public static void register(RegisterPayloadHandlersEvent e){
-  var r=e.registrar("3");
+  var r=e.registrar("4");
   r.playToServer(Request.TYPE,Request.CODEC,ProjectPackets::handle);
   r.playToClient(Reply.TYPE,Reply.CODEC,(p,c)->c.enqueueWork(()->latest=GSON.fromJson(p.json(),Result.class)));
  }
@@ -42,7 +42,7 @@ public final class ProjectPackets {
    Result result;
    try{
     Action a=GSON.fromJson(packet.json(),Action.class);
-    if("create".equals(a.action())) ProjectService.create(player,a.name(),a.worldType(),a.size(),a.profile(),a.automaticBackups());
+    if("create".equals(a.action())) ProjectService.create(player,a.name(),a.worldType(),a.size(),a.width(),a.profile(),a.automaticBackups());
     else if("visit".equals(a.action())) fr.worldarchitect.project.VisitSessions.enter(player,java.util.UUID.fromString(a.name()));
     else if("leave".equals(a.action())) fr.worldarchitect.project.ConstructionSessions.leave(player);
     else if(!"list".equals(a.action())) throw new IllegalArgumentException("Unknown action");
