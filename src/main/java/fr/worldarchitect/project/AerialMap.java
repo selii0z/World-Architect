@@ -8,7 +8,7 @@ import net.minecraft.world.level.levelgen.Heightmap;
 public final class AerialMap {
  private AerialMap(){}
  public static final int SIZE=64;
- public record Tile(String dimension,int originX,int originZ,int step,int size,int[] colors){}
+ public record Tile(String dimension,int originX,int originZ,int step,int size,int[] colors,int length,int width){}
  public static Tile sample(ServerPlayer player,int centerX,int centerZ,int step)throws IOException{
   var level=player.serverLevel();
   if(!level.getServer().isSameThread()||!player.hasPermissions(2))throw new IOException("Access denied");
@@ -28,6 +28,6 @@ public final class AerialMap {
    var state=chunk.getBlockState(pos);
    colors[z*SIZE+x]=0xff000000|state.getMapColor(level,pos).col;
   }
-  return new Tile(level.dimension().location().toString(),ox,oz,step,SIZE,colors);
+  return new Tile(level.dimension().location().toString(),ox,oz,step,SIZE,colors,project.bounds().length(),project.bounds().width());
  }
 }
