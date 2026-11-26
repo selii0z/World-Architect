@@ -11,6 +11,7 @@ public final class AerialScreen extends Screen {
  private boolean initialized;
  private long lastRequest;
  private boolean dirty,dragging;
+ private fr.worldarchitect.project.AerialMap.Tile previousTile;
  private double dragX,dragZ;
  private int pixelSize(){return Math.max(1,Math.min((width-20)/64,(height-82)/64));}
  private boolean overMap(double x,double y){int size=pixelSize()*64;return x>=(width-size)/2&&x<(width+size)/2&&y>=24&&y<24+size;}
@@ -47,8 +48,12 @@ public final class AerialScreen extends Screen {
   int pixel=Math.max(1,Math.min((width-20)/64,(height-82)/64)),size=pixel*64,x=(width-size)/2,y=24;
   g.fill(x,y,x+size,y+size,0xff333833);
   var r=ProjectPackets.aerial();
-  if(r!=null&&r.tile()!=null&&minecraft.level!=null){
-   var t=r.tile();
+  if(r!=null&&r.tile()!=null&&minecraft.level!=null&&r.tile().dimension().equals(minecraft.level.dimension().location().toString()))previousTile=r.tile();
+  if(previousTile!=null&&minecraft.level!=null){
+   var t=previousTile;
+   if(t.size()==64&&t.colors().length==4096&&t.dimension().equals(minecraft.level.dimension().location().toString())){
+    for(int i=0;i<4096;i++){int color=t.colors()[i];if(color==0)continue;double scale=pixel/(double)step;int px=x+(int)Math.floor((t.originX()+i%64*t.step()-cx+32.0*step)*scale),py=y+(int)Math.floor((t.originZ()+i/64*t.step()-cz+32.0*step)*scale);int ex=x+(int)Math.ceil((t.originX()+(i%64+1)*t.step()-cx+32.0*step)*scale),ey=y+(int)Math.ceil((t.originZ()+(i/64+1)*t.step()-cz+32.0*step)*scale);int l=Math.max(x,px),a=Math.max(y,py),rr=Math.min(x+size,ex),bb=Math.min(y+size,ey);if(l<rr&&a<bb)g.fill(l,a,rr,bb,color);}
+   }
    if(t.size()==64&&t.colors().length==4096&&t.step()==step&&t.originX()==cx-32*step&&t.originZ()==cz-32*step&&t.dimension().equals(minecraft.level.dimension().location().toString())){
     for(int i=0;i<4096;i++){int c=t.colors()[i];if(c!=0){int px=x+i%64*pixel,py=y+i/64*pixel;g.fill(px,py,px+pixel,py+pixel,c);}}
     if(t.length()>0&&t.width()>0){
