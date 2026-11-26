@@ -127,6 +127,7 @@ public final class ArchitectScreen extends Screen {
    button("Bibliothèque",x+w/2+2,y+192,(w-28)/2,()->{library=true;libraryPage=0;rebuild();action("library");});
    button("Collections de maps",x+12,y+216,(w-28)/2,()->{catalogOpen=true;collection=null;importSource=null;catalogPage=0;rebuild();ProjectPackets.refreshCatalog();});
    button("Outils",x+w/2+2,y+216,(w-28)/2,()->{toolsOpen=true;rebuild();});
+   button("Marqueurs",x+12,y+240,w-24,()->{ProjectPackets.refreshMarkers();minecraft.setScreen(new MarkerScreen(this));});
    refresh();
   }else{
    nameBox=new EditBox(font,x+12,y+34,w-24,20,Component.literal("Nom du projet"));
@@ -195,7 +196,7 @@ public final class ArchitectScreen extends Screen {
   }else if(type==3)g.drawCenteredString(font,"Importation indisponible pour le moment",width/2,y+184,TEXT);
   else if(sizes[size]==-1)g.drawCenteredString(font,"Longueur X / Largeur Z : 16 à 60 000 blocs",width/2,y+184,TEXT);
   else g.drawCenteredString(font,"Création des paramètres uniquement",width/2,y+184,TEXT);
-  if(!catalogOpen&&!creating&&!selecting&&!library&&!toolsOpen&&!notice.isEmpty())g.drawCenteredString(font,font.plainSubstrByWidth(notice,w-24),width/2,y+240,0xffdfc17b);
+  if(!catalogOpen&&!creating&&!selecting&&!library&&!toolsOpen&&!notice.isEmpty())g.drawCenteredString(font,font.plainSubstrByWidth(notice,w-24),width/2,y+264,0xffdfc17b);
   super.render(g,mx,my,delta);
  }
  @Override public boolean mouseClicked(double mx,double my,int button){
