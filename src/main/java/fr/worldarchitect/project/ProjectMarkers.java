@@ -42,6 +42,16 @@ public final class ProjectMarkers {
   var marker=new Marker(UUID.randomUUID(),name,p.getX(),p.getY(),p.getZ(),category,color);
   markers.add(marker);save(path(player,project),markers);return marker;
  }
+ public static void teleport(ServerPlayer player,UUID id)throws IOException{
+  var project=ConstructionSessions.requireEditor(player);
+  BlockEditScheduler.requireIdle(player,project);
+  var marker=list(player).stream().filter(m->id.equals(m.id())).findFirst().orElseThrow(()->new IOException("Marker not found"));
+  var level=player.serverLevel();
+  var pos=new net.minecraft.core.BlockPos(marker.x(),marker.y(),marker.z());
+  if(!project.bounds().contains(marker.x()+0.5,marker.z()+0.5)||!level.getWorldBorder().isWithinBounds(pos)||marker.y()<=level.getMinBuildHeight()||marker.y()>=level.getMaxBuildHeight()-1||!level.hasChunkAt(pos))throw new IOException("Marker outside loaded safe terrain");
+  if(!level.getBlockState(pos).getCollisionShape(level,pos).isEmpty()||!level.getBlockState(pos.above()).getCollisionShape(level,pos.above()).isEmpty()||!level.getFluidState(pos).isEmpty()||!level.getFluidState(pos.above()).isEmpty())throw new IOException("Marker obstructed");
+  player.teleportTo(level,marker.x()+0.5,marker.y(),marker.z()+0.5,player.getYRot(),player.getXRot());
+ }
  public static boolean remove(ServerPlayer player,UUID id)throws IOException{
   var project=ConstructionSessions.requireEditor(player);
   var markers=new ArrayList<>(list(player));
