@@ -13,7 +13,7 @@ import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 @EventBusSubscriber(modid="worldarchitect")
 public final class BlockEditScheduler {
     private BlockEditScheduler(){}
-    private record Running(UUID owner, BlockEditJob job, java.nio.file.Path archive, BlockEditHistory.Entry replay, boolean reverse){}
+    private record Running(UUID owner, BlockEditJob job, java.nio.file.Path archive, BlockEditHistory.Entry replay, boolean reverse, boolean recovery){}
     private static final Map<MinecraftServer,Map<ResourceKey<Level>,Running>> JOBS=new IdentityHashMap<>();
     private static void requireCleanJournal(java.nio.file.Path dir) throws java.io.IOException {
         if(!java.nio.file.Files.exists(dir))return;
@@ -35,7 +35,7 @@ public final class BlockEditScheduler {
             .resolve("worldarchitect/block-edits").resolve(project.id().toString()).resolve(UUID.randomUUID()+".pending.nbt");
         requireCleanJournal(archive.getParent());
         BlockEditArchive.save(archive,player.serverLevel(),player.getUUID(),changes);
-        jobs.put(dimension,new Running(player.getUUID(),new BlockEditJob(player.serverLevel(),changes),archive,null,false));
+        jobs.put(dimension,new Running(player.getUUID(),new BlockEditJob(player.serverLevel(),changes),archive,null,false,false));
     }
     public static boolean replay(ServerPlayer player,boolean reverse)throws java.io.IOException{
         var project=ConstructionSessions.requireEditor(player);
@@ -59,7 +59,26 @@ public final class BlockEditScheduler {
         }
         var pending=dir.resolve(UUID.randomUUID()+".pending.nbt");
         BlockEditArchive.save(pending,level,player.getUUID(),changes);
-        jobs.put(level.dimension(),new Running(player.getUUID(),new BlockEditJob(level,changes),pending,entry,reverse));
+        jobs.put(level.dimension(),new Running(player.getUUID(),new BlockEditJob(level,changes),pending,entry,reverse,false));
+        return true;
+    }
+    public static boolean recover(ServerPlayer player)throws java.io.IOException{
+        var project=ConstructionSessions.requireEditor(player);
+        var server=player.getServer();
+        var level=player.serverLevel();
+        var jobs=JOBS.computeIfAbsent(server,s->new LinkedHashMap<>());
+        if(jobs.containsKey(level.dimension()))throw new IllegalStateException("Construction operation already running");
+        var dir=server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).resolve("worldarchitect/block-edits").resolve(project.id().toString());
+        if(!java.nio.file.Files.isDirectory(dir))return false;
+        java.nio.file.Path archive;
+        try(var pending=java.nio.file.Files.newDirectoryStream(dir,"*.pending.nbt")){
+            var it=pending.iterator();if(!it.hasNext())return false;archive=it.next();
+            if(it.hasNext())throw new java.io.IOException("Multiple pending archives require manual review");
+        }
+        var plan=BlockEditRecovery.inspect(archive,level,project,player.getUUID());
+        if(plan.conflicts()!=0)throw new java.io.IOException("Recovery conflicts: "+plan.conflicts());
+        if(plan.restore().isEmpty())throw new java.io.IOException("Terrain already restored; journal requires manual review");
+        jobs.put(level.dimension(),new Running(player.getUUID(),new BlockEditJob(level,plan.restore()),archive,null,false,true));
         return true;
     }
     public static boolean cancel(ServerPlayer player){
@@ -94,7 +113,10 @@ public final class BlockEditScheduler {
             case COMPLETE,CANCELLED,FAILED -> {
                 iterator.remove();
                 try{
-                    if(job.state()==BlockEditJob.State.COMPLETE&&entry.replay()!=null){
+                    if(entry.recovery()){
+                        // Keep the original journal until terrain persistence and history reconciliation are verified.
+                        com.mojang.logging.LogUtils.getLogger().warn("Recovery {}: original archive retained at {}",job.state(),entry.archive());
+                    }else if(job.state()==BlockEditJob.State.COMPLETE&&entry.replay()!=null){
                         var history=BlockEditHistory.load(entry.archive().resolveSibling("history.json"));
                         history.confirm(entry.reverse(),entry.replay());
                         java.nio.file.Files.deleteIfExists(entry.archive());
