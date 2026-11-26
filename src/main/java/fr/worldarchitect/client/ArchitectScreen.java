@@ -74,6 +74,7 @@ public final class ArchitectScreen extends Screen {
     button("+ Créer une map",x+12,y+168,w-24,()->{targetCollection=collection;catalogOpen=false;creating=true;rebuild();});
    }
    if(importSource!=null&&mapEntries().stream().anyMatch(e->e.name().equals(importSource)&&(e.format()==fr.worldarchitect.project.MapCatalog.Format.REGION||e.format()==fr.worldarchitect.project.MapCatalog.Format.WORLD))){
+    button("Sauvegardes",x+12,y+240,w-24,()->minecraft.setScreen(new BackupScreen(this,collection,importSource)));
     button("Exporter ZIP",x+w/2+2,y+216,(w-28)/2,()->{ProjectPackets.request(new ProjectPackets.Action("export_map",collection,null,0,importSource,false));importSource=null;rebuild();});
     button("Dupliquer",x+12,y+216,(w-28)/2,()->minecraft.setScreen(new DuplicateMapScreen(this,collection,importSource,importName)));
     button("Activer la map",x+12,y+192,(w-28)/2,()->{ProjectPackets.request(new ProjectPackets.Action("activate_map",importSource,null,0,collection,false));notice="Activation demandée";catalogOpen=false;importSource=null;rebuild();});
