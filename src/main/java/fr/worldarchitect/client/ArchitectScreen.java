@@ -103,7 +103,7 @@ public final class ArchitectScreen extends Screen {
    button("Annuler",x+12,y+170,half,()->action("block_undo"));
    button("Rétablir",x+w/2+2,y+170,half,()->action("block_redo"));
    button("Retour",x+12,y+194,half,()->{toolsOpen=false;rebuild();});
-   button("Revenir au jeu",x+w/2+2,y+194,half,this::onClose);
+   button("Récupérer",x+w/2+2,y+194,half,()->action("block_recover"));
   }else if(selecting){
    button("Définir le point A",x+12,y+34,w-24,()->action("select_first"));
    button("Définir le point B",x+12,y+58,w-24,()->action("select_second"));
