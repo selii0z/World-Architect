@@ -101,6 +101,18 @@ public final class ProjectPackets {
     String message="OK";
     PreviewBounds preview=null;
     java.util.List<fr.worldarchitect.project.StructureLibrary.Metadata> structures=java.util.List.of();
+    if("import_schematic".equals(a.action())){
+     CatalogResult response;
+     try{
+      String[] names=a.profile().split("\\|",-1);
+      if(names.length!=2)throw new IllegalArgumentException("Invalid schematic request");
+      var source=fr.worldarchitect.project.MapCatalog.resolveSchematic(a.name(),names[0]);
+      fr.worldarchitect.project.StructureLibrary.importSchematic(player.serverLevel(),source,names[1],a.name());
+      response=new CatalogResult(true,"Structure ajoutée à la bibliothèque",fr.worldarchitect.project.MapCatalog.scan());
+      if(GSON.toJson(response).length()>250000)response=new CatalogResult(true,"Structure importée ; catalogue trop volumineux",java.util.List.of());
+     }catch(Exception ex){com.mojang.logging.LogUtils.getLogger().warn("Schematic import failed",ex);response=new CatalogResult(false,"Échec de l’importation de la structure",java.util.List.of());}
+     PacketDistributor.sendToPlayer(player,new CatalogReply(GSON.toJson(response)));return;
+    }
     if("import_map".equals(a.action())){
      if(!IMPORTING.compareAndSet(false,true)){
       PacketDistributor.sendToPlayer(player,new CatalogReply(GSON.toJson(new CatalogResult(false,"Une importation est déjà en cours",java.util.List.of()))));return;
