@@ -56,6 +56,7 @@ public final class AerialScreen extends Screen {
    }
   }
   g.drawCenteredString(font,"X: "+cx+"  Z: "+cz,width/2,height-60,0xffe9eadf);
+  g.drawCenteredString(font,"Clic droit sur un marqueur : TP",width/2,height-72,0xffb6c69c);
   super.render(g,mx,my,delta);
  }
  @Override public boolean mouseScrolled(double x,double y,double horizontal,double vertical){
@@ -64,6 +65,25 @@ public final class AerialScreen extends Screen {
   int pixel=pixelSize();cx+=(int)Math.round((x-width/2.0)/pixel*(old-step));cz+=(int)Math.round((y-24-32*pixel)/pixel*(old-step));changed();return true;
  }
  @Override public boolean mouseClicked(double x,double y,int button){
+  if(button==1&&overMap(x,y)&&minecraft.level!=null){
+   var markers=ProjectPackets.markers();
+   if(markers!=null&&markers.success()&&markers.dimension().equals(minecraft.level.dimension().location().toString())){
+    int pixel=pixelSize();double best=49;fr.worldarchitect.project.ProjectMarkers.Marker chosen=null;
+    for(var m:markers.markers()){
+     double px=(width-64*pixel)/2.0+(m.x()-cx+32.0*step)/step*pixel,py=24+(m.z()-cz+32.0*step)/step*pixel;
+     double distance=(px-x)*(px-x)+(py-y)*(py-y);
+     if(distance<best){best=distance;chosen=m;}
+    }
+    if(chosen!=null){
+     final var marker=chosen;
+     minecraft.setScreen(new net.minecraft.client.gui.screens.ConfirmScreen(ok->{
+      if(ok)ProjectPackets.request(new ProjectPackets.Action("marker_teleport",marker.id().toString(),null,0,"",false));
+      minecraft.setScreen(this);
+     },Component.literal("Téléportation"),Component.literal("Rejoindre "+marker.name()+" ?")));
+     return true;
+    }
+   }
+  }
   if(button==0&&overMap(x,y)){dragging=true;dragX=0;dragZ=0;return true;}return super.mouseClicked(x,y,button);
  }
  @Override public boolean mouseDragged(double x,double y,int button,double dx,double dy){
