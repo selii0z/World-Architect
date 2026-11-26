@@ -9,6 +9,10 @@ import fr.worldarchitect.project.Project;
 public final class ArchitectScreen extends Screen {
  private static final int BG=0xff1c201b,PANEL=0xff2c3427,ACCENT=0xffb6c69c,TEXT=0xffe9eadf;
  private boolean creating=false, backups=true, selecting=false, library=false;
+ private boolean toolsOpen=false;
+ private int shapeIndex=0;
+ private String targetBlock="minecraft:stone",filterBlock="";
+ private final String[] shapeLabels={"Plein","Murs","Boîte creuse","Ellipsoïde","Ellipsoïde creux","Cylindre","Cylindre creux"};
  private java.util.UUID selected;
  private boolean catalogOpen=false;
  private String collection=null, newCollection="", targetCollection=null;
@@ -83,6 +87,21 @@ public final class ArchitectScreen extends Screen {
    button("Miroir : "+(mirrored?"Oui":"Non"),x+16+(w-32)/3,y+192,(w-32)/3,()->{mirrored=!mirrored;rebuild();});
    button("Aperçu",x+20+2*((w-32)/3),y+192,(w-32)/3,this::preview);
    button("Retour",x+12,y+216,w-24,()->{library=false;rebuild();});
+  }else if(toolsOpen){
+   int half=(w-28)/2;
+   button("Point A",x+12,y+30,half,()->action("select_first"));
+   button("Point B",x+w/2+2,y+30,half,()->action("select_second"));
+   button("Forme : "+shapeLabels[shapeIndex],x+12,y+54,w-24,()->{shapeIndex=(shapeIndex+1)%shapeLabels.length;rebuild();});
+   var target=new EditBox(font,x+12,y+88,w-24,20,Component.literal("Bloc cible"));
+   target.setMaxLength(128);target.setValue(targetBlock);target.setResponder(v->targetBlock=v);addRenderableWidget(target);
+   var filter=new EditBox(font,x+12,y+122,w-24,20,Component.literal("Bloc à remplacer"));
+   filter.setMaxLength(128);filter.setValue(filterBlock);filter.setHint(Component.literal("Vide = tous les blocs"));filter.setResponder(v->filterBlock=v);addRenderableWidget(filter);
+   button("Appliquer",x+12,y+146,half,()->{if(!targetBlock.isBlank())ProjectPackets.request(new ProjectPackets.Action("block_edit",fr.worldarchitect.project.EditGeometry.Shape.values()[shapeIndex].name(),null,0,targetBlock.strip()+"|"+filterBlock.strip(),false));});
+   button("Interrompre",x+w/2+2,y+146,half,()->action("block_cancel"));
+   button("Annuler",x+12,y+170,half,()->action("block_undo"));
+   button("Rétablir",x+w/2+2,y+170,half,()->action("block_redo"));
+   button("Retour",x+12,y+194,half,()->{toolsOpen=false;rebuild();});
+   button("Revenir au jeu",x+w/2+2,y+194,half,this::onClose);
   }else if(selecting){
    button("Définir le point A",x+12,y+34,w-24,()->action("select_first"));
    button("Définir le point B",x+12,y+58,w-24,()->action("select_second"));
@@ -104,7 +123,8 @@ public final class ArchitectScreen extends Screen {
    button("Fermer",x+w/2+2,y+168,(w-28)/2,this::onClose);
    button("Sélection",x+12,y+192,(w-28)/2,()->{selecting=true;rebuild();});
    button("Bibliothèque",x+w/2+2,y+192,(w-28)/2,()->{library=true;libraryPage=0;rebuild();action("library");});
-   button("Collections de maps",x+12,y+216,w-24,()->{catalogOpen=true;collection=null;importSource=null;catalogPage=0;rebuild();ProjectPackets.refreshCatalog();});
+   button("Collections de maps",x+12,y+216,(w-28)/2,()->{catalogOpen=true;collection=null;importSource=null;catalogPage=0;rebuild();ProjectPackets.refreshCatalog();});
+   button("Construction",x+w/2+2,y+216,(w-28)/2,()->{toolsOpen=true;rebuild();});
    refresh();
   }else{
    nameBox=new EditBox(font,x+12,y+34,w-24,20,Component.literal("Nom du projet"));
@@ -127,7 +147,7 @@ public final class ArchitectScreen extends Screen {
   g.fill(0,0,width,height,BG);
   int w=Math.min(340,width-24),x=(width-w)/2,y=height/2-105;
   g.fill(x,y,x+w,y+240,PANEL);
-  g.drawCenteredString(font,catalogOpen?(collection==null?"COLLECTIONS DE MAPS":font.plainSubstrByWidth(collection,w-24)):library?"BIBLIOTHÈQUE":selecting?"SÉLECTION DE BÂTIMENT":creating?(targetCollection==null?"NOUVEAU PROJET":font.plainSubstrByWidth("NOUVELLE MAP : "+targetCollection,w-24)):"WORLD ARCHITECT",width/2,y+10,ACCENT);
+  g.drawCenteredString(font,catalogOpen?(collection==null?"COLLECTIONS DE MAPS":font.plainSubstrByWidth(collection,w-24)):library?"BIBLIOTHÈQUE":toolsOpen?"OUTILS DE CONSTRUCTION":selecting?"SÉLECTION DE BÂTIMENT":creating?(targetCollection==null?"NOUVEAU PROJET":font.plainSubstrByWidth("NOUVELLE MAP : "+targetCollection,w-24)):"WORLD ARCHITECT",width/2,y+10,ACCENT);
   if(catalogOpen){
    var rows=catalogRows();var response=ProjectPackets.catalog();
    for(int i=catalogPage*5;i<Math.min(rows.size(),catalogPage*5+5);i++){
@@ -147,6 +167,11 @@ public final class ArchitectScreen extends Screen {
    }
    var response=ProjectPackets.latest();
    g.drawCenteredString(font,response==null?"Chargement...":font.plainSubstrByWidth(response.message(),w-24),width/2,y+182,response!=null&&!response.success()?0xffdf8b80:TEXT);
+  }else if(toolsOpen){
+   g.drawString(font,"Bloc cible (air = effacer)",x+12,y+78,TEXT);
+   g.drawString(font,"Filtre de remplacement",x+12,y+112,TEXT);
+   var r=ProjectPackets.latest();
+   if(r!=null)g.drawCenteredString(font,font.plainSubstrByWidth(r.message(),w-24),width/2,y+222,r.success()?ACCENT:0xffdf8b80);
   }else if(selecting){
    var r=ProjectPackets.latest();
    if(r!=null)g.drawCenteredString(font,font.plainSubstrByWidth(r.message(),w-24),width/2,y+186,r.success()?ACCENT:0xffdf8b80);
@@ -168,7 +193,7 @@ public final class ArchitectScreen extends Screen {
   }else if(type==3)g.drawCenteredString(font,"Importation indisponible pour le moment",width/2,y+184,TEXT);
   else if(sizes[size]==-1)g.drawCenteredString(font,"Longueur X / Largeur Z : 16 à 60 000 blocs",width/2,y+184,TEXT);
   else g.drawCenteredString(font,"Création des paramètres uniquement",width/2,y+184,TEXT);
-  if(!catalogOpen&&!creating&&!selecting&&!library&&!notice.isEmpty())g.drawCenteredString(font,font.plainSubstrByWidth(notice,w-24),width/2,y+240,0xffdfc17b);
+  if(!catalogOpen&&!creating&&!selecting&&!library&&!toolsOpen&&!notice.isEmpty())g.drawCenteredString(font,font.plainSubstrByWidth(notice,w-24),width/2,y+240,0xffdfc17b);
   super.render(g,mx,my,delta);
  }
  @Override public boolean mouseClicked(double mx,double my,int button){
@@ -192,7 +217,7 @@ public final class ArchitectScreen extends Screen {
     if(i<entries.size()){prefabSelected=entries.get(i).id();return true;}
    }
   }
-  if(!creating&&!selecting&&!library&&button==0){
+  if(!creating&&!selecting&&!library&&!toolsOpen&&button==0){
    int w=Math.min(340,width-24),x=(width-w)/2,y=height/2-105;
    var r=ProjectPackets.latest();
    if(r!=null&&r.success()&&mx>=x+12&&mx<x+w-12&&my>=y+30&&my<y+114){
