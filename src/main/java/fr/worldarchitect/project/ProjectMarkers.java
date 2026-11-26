@@ -32,10 +32,22 @@ public final class ProjectMarkers {
  }
  public static Marker add(ServerPlayer player,String name)throws IOException{return add(player,name,Category.GENERAL,Color.WHITE);}
  public static Marker add(ServerPlayer player,String name,Category category,Color color)throws IOException{
+  return addAt(player,name,category,color,player.blockPosition());
+ }
+ public static Marker addSurface(ServerPlayer player,String name,Category category,Color color,int x,int z)throws IOException{
+  var project=ConstructionSessions.requireEditor(player);
+  var level=player.serverLevel();
+  if(!project.bounds().contains(x+0.5,z+0.5)||Math.abs((long)x)>29999984||Math.abs((long)z)>29999984)throw new IOException("Outside project");
+  var chunk=level.getChunkSource().getChunkNow(x>>4,z>>4);
+  if(chunk==null)throw new IOException("Terrain not loaded");
+  int y=chunk.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE,x&15,z&15)+1;
+  if(y<=level.getMinBuildHeight()||y>=level.getMaxBuildHeight()-1)throw new IOException("Invalid surface");
+  return addAt(player,name,category,color,new net.minecraft.core.BlockPos(x,y,z));
+ }
+ private static Marker addAt(ServerPlayer player,String name,Category category,Color color,net.minecraft.core.BlockPos p)throws IOException{
   var project=ConstructionSessions.requireEditor(player);
   name=name.strip();
   if(name.isEmpty()||name.length()>64||name.chars().anyMatch(Character::isISOControl))throw new IOException("Invalid marker name");
-  var p=player.blockPosition();
   if(!project.bounds().contains(p.getX()+0.5,p.getZ()+0.5))throw new IOException("Outside project");
   var markers=new ArrayList<>(list(player));
   if(markers.size()>=512)throw new IOException("Marker limit reached");
