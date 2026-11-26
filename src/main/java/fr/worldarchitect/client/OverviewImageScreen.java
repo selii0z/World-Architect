@@ -89,7 +89,7 @@ public final class OverviewImageScreen extends Screen{
     if(Math.abs(x-px)<=6&&Math.abs(y-py)<=6){minecraft.setScreen(new MarkerActionsScreen(this,m));return true;}
    }
   }
-  minecraft.setScreen(new MapMarkerScreen(this,bx,bz));return true;
+  minecraft.setScreen(new net.minecraft.client.gui.screens.ConfirmScreen(ok->{if(ok){ProjectPackets.request(new ProjectPackets.Action("surface_teleport",null,null,0,bx+","+bz,false));minecraft.setScreen(this);}else minecraft.setScreen(new MapMarkerScreen(this,bx,bz));},Component.literal("Emplacement X: "+bx+" Z: "+bz),Component.literal("Choisir une action"),Component.literal("Téléporter"),Component.literal("Créer un marqueur")));return true;
  }
  @Override public boolean mouseScrolled(double x,double y,double horizontal,double vertical){zoom=Math.max(0.25,Math.min(16,zoom*Math.pow(1.2,vertical)));return true;}
  @Override public boolean mouseDragged(double x,double y,int button,double deltaX,double deltaY){if(button==0){dx+=deltaX;dz+=deltaY;return true;}return false;}
