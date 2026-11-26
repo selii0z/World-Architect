@@ -69,7 +69,10 @@ public final class ArchitectScreen extends Screen {
    }else{
     button("+ Créer une map",x+12,y+168,w-24,()->{targetCollection=collection;catalogOpen=false;creating=true;rebuild();});
    }
-   button("Retour",x+12,y+192,w-24,()->{if(importSource!=null){importSource=null;}else if(collection!=null){collection=null;catalogPage=0;}else catalogOpen=false;rebuild();});
+   if(importSource!=null&&mapEntries().stream().anyMatch(e->e.name().equals(importSource)&&(e.format()==fr.worldarchitect.project.MapCatalog.Format.REGION||e.format()==fr.worldarchitect.project.MapCatalog.Format.WORLD))){
+    button("Activer la map",x+12,y+192,(w-28)/2,()->{ProjectPackets.request(new ProjectPackets.Action("activate_map",importSource,null,0,collection,false));notice="Activation demandée";catalogOpen=false;importSource=null;rebuild();});
+   }
+   button("Retour",importSource==null?x+12:x+w/2+2,y+192,importSource==null?w-24:(w-28)/2,()->{if(importSource!=null){importSource=null;}else if(collection!=null){collection=null;catalogPage=0;}else catalogOpen=false;rebuild();});
   }else if(library){
    var search=new EditBox(font,x+12,y+30,w-24,20,Component.literal("Recherche"));
    search.setHint(Component.literal("Nom ou catégorie"));search.setValue(librarySearch);search.setResponder(v->{librarySearch=v;libraryPage=0;});addRenderableWidget(search);
@@ -165,7 +168,7 @@ public final class ArchitectScreen extends Screen {
   }else if(type==3)g.drawCenteredString(font,"Importation indisponible pour le moment",width/2,y+184,TEXT);
   else if(sizes[size]==-1)g.drawCenteredString(font,"Longueur X / Largeur Z : 16 à 60 000 blocs",width/2,y+184,TEXT);
   else g.drawCenteredString(font,"Création des paramètres uniquement",width/2,y+184,TEXT);
-  if(!catalogOpen&&!creating&&!selecting&&!library&&!notice.isEmpty())g.drawCenteredString(font,font.plainSubstrByWidth(notice,w-24),width/2,y+222,0xffdfc17b);
+  if(!catalogOpen&&!creating&&!selecting&&!library&&!notice.isEmpty())g.drawCenteredString(font,font.plainSubstrByWidth(notice,w-24),width/2,y+240,0xffdfc17b);
   super.render(g,mx,my,delta);
  }
  @Override public boolean mouseClicked(double mx,double my,int button){
