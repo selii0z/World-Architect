@@ -72,7 +72,40 @@ public final class MapCatalog {
             if (Files.exists(source.resolve("session.lock"), LinkOption.NOFOLLOW_LINKS)) throw new IOException("Import an offline copy without session.lock");
             return MapTerrain.snapshot(source, destination);
         }
+        if (type == Format.REGION) return importLooseRegions(source, destination);
         throw new IOException("Unsupported terrain source");
+    }
+
+    private static Path importLooseRegions(Path source, Path destination) throws IOException {
+        List<Path> regions;
+        if (file(source)) regions = List.of(source);
+        else if (directory(source)) {
+            try (Stream<Path> entries = Files.list(source)) {
+                regions = entries.filter(MapCatalog::file)
+                    .filter(p -> p.getFileName().toString().matches("r\\\\.-?[0-9]+\\\\.-?[0-9]+\\\\.mca")).toList();
+            }
+        } else throw new IOException("Invalid region source");
+        if (regions.isEmpty()) throw new IOException("No region files found");
+        for (Path region : regions) {
+            if (!region.getFileName().toString().matches("r\\\\.-?[0-9]+\\\\.-?[0-9]+\\\\.mca"))
+                throw new IOException("Invalid region filename");
+            if (Files.size(region) < 8192 || Files.size(region) % 4096 != 0)
+                throw new IOException("Invalid region file size: " + region.getFileName());
+        }
+        Path staging = Files.createTempDirectory(destination.getParent(), ".region-import-");
+        try {
+            Path folder = Files.createDirectory(staging.resolve("region"));
+            for (Path region : regions) Files.copy(region, folder.resolve(region.getFileName()), LinkOption.NOFOLLOW_LINKS);
+            if (Files.exists(destination, LinkOption.NOFOLLOW_LINKS)) throw new FileAlreadyExistsException(destination.toString());
+            Files.move(staging, destination);
+            return destination;
+        } finally {
+            if (Files.exists(staging, LinkOption.NOFOLLOW_LINKS)) {
+                try (Stream<Path> paths = Files.walk(staging)) {
+                    for (Path p : paths.sorted(Comparator.reverseOrder()).toList()) Files.deleteIfExists(p);
+                }
+            }
+        }
     }
 
     private static Format format(Path path) throws IOException {
