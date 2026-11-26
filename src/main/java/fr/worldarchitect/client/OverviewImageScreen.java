@@ -7,7 +7,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 public final class OverviewImageScreen extends Screen{
- private final Screen parent;private final boolean activeProject;private ResourceLocation texture;private int iw,ih;private double zoom=1,dx,dz;private boolean attempted;private int originX,originZ,step;private String error="";
+ private final Screen parent;private final boolean activeProject;private ResourceLocation texture;private int iw,ih;private double zoom=1,dx,dz;private boolean attempted;private fr.worldarchitect.project.ProjectMarkers.Marker moving;private int originX,originZ,step;private String error="";
  public OverviewImageScreen(Screen parent){this(parent,false);}
  public OverviewImageScreen(Screen parent,boolean activeProject){super(Component.literal("Carte aérienne"));this.parent=parent;this.activeProject=activeProject;if(activeProject)ProjectPackets.refreshMarkers();}
  @Override public void tick(){
@@ -66,10 +66,34 @@ public final class OverviewImageScreen extends Screen{
    int px=(int)Math.floor((mx-(width-w)/2.0-dx)*iw/w),pz=(int)Math.floor((my-(height-h)/2.0-dz)*ih/h);
    if(step>0&&px>=0&&px<iw&&pz>=0&&pz<ih&&my>=22&&my<height-20)g.drawCenteredString(font,"X : "+(originX+(long)px*step)+"  Z : "+(originZ+(long)pz*step)+"  (± "+step+" blocs)",width/2,height-14,0xffffff);
   }else g.drawCenteredString(font,error.isEmpty()?"Chargement...":error,width/2,height/2,0xffffff);
-  g.drawCenteredString(font,"Carte aérienne — molette : zoom / glisser : déplacer / Échap : retour",width/2,7,0xffffff);
+  g.drawCenteredString(font,moving!=null?"Choisir la destination — clic droit : annuler":activeProject?"Molette : zoom / clic droit : marqueur / Échap : retour":"Carte aérienne — molette : zoom / glisser : déplacer / Échap : retour",width/2,7,0xffffff);
+ }
+ public void beginMove(fr.worldarchitect.project.ProjectMarkers.Marker marker){moving=marker;}
+ @Override public boolean mouseClicked(double x,double y,int button){
+  if(!activeProject||texture==null||step<=0||minecraft.level==null||y<22||y>=height-20)return super.mouseClicked(x,y,button);
+  double scale=Math.min((width-20.0)/iw,(height-44.0)/ih)*zoom;
+  int w=Math.max(1,(int)(iw*scale)),h=Math.max(1,(int)(ih*scale));
+  double left=(width-w)/2.0+dx,top=(height-h)/2.0+dz;
+  double u=(x-left)*iw/w,v=(y-top)*ih/h;
+  if(u<0||v<0||u>=iw||v>=ih)return false;
+  int bx=originX+(int)Math.floor(u)*step,bz=originZ+(int)Math.floor(v)*step;
+  if(moving!=null){
+   if(button==1){moving=null;return true;}
+   if(button==0){var marker=moving; minecraft.setScreen(new net.minecraft.client.gui.screens.ConfirmScreen(ok->{if(ok){ProjectPackets.request(new ProjectPackets.Action("marker_move",marker.id().toString(),null,0,bx+","+bz,false));moving=null;}minecraft.setScreen(this);},Component.literal("Déplacer "+marker.name()),Component.literal("X: "+bx+" Z: "+bz+" ?")));return true;}
+  }
+  if(button!=1)return super.mouseClicked(x,y,button);
+  var markers=ProjectPackets.markers();
+  if(markers!=null&&markers.success()&&minecraft.level.dimension().location().toString().equals(markers.dimension())){
+   for(var m:markers.markers()){
+    double px=left+(m.x()-(double)originX)/step*w/iw,py=top+(m.z()-(double)originZ)/step*h/ih;
+    if(Math.abs(x-px)<=6&&Math.abs(y-py)<=6){minecraft.setScreen(new MarkerActionsScreen(this,m));return true;}
+   }
+  }
+  minecraft.setScreen(new MapMarkerScreen(this,bx,bz));return true;
  }
  @Override public boolean mouseScrolled(double x,double y,double horizontal,double vertical){zoom=Math.max(0.25,Math.min(16,zoom*Math.pow(1.2,vertical)));return true;}
  @Override public boolean mouseDragged(double x,double y,int button,double deltaX,double deltaY){if(button==0){dx+=deltaX;dz+=deltaY;return true;}return false;}
+ @Override protected void init(){if(texture==null&&attempted){attempted=false;if(activeProject){ProjectPackets.clearOverviewImage();ProjectPackets.request(new ProjectPackets.Action("project_overview_image",null,null,0,null,false));}}if(activeProject)ProjectPackets.refreshMarkers();}
  @Override public void removed(){if(texture!=null){minecraft.getTextureManager().release(texture);texture=null;}ProjectPackets.clearOverviewImage();}
  @Override public void onClose(){minecraft.setScreen(parent);}
 }
