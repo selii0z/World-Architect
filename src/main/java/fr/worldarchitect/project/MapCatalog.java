@@ -15,9 +15,9 @@ public final class MapCatalog {
 
     public static Path root() throws IOException {
         Path root = FMLPaths.GAMEDIR.get().resolve("worldarchitect").resolve("maps");
-        Files.createDirectories(root);
         if (Files.isSymbolicLink(root) || Files.isSymbolicLink(root.getParent()))
             throw new IOException("Symbolic links are not supported in the map catalog");
+        Files.createDirectories(root);
         return root;
     }
 
@@ -82,12 +82,12 @@ public final class MapCatalog {
         else if (directory(source)) {
             try (Stream<Path> entries = Files.list(source)) {
                 regions = entries.filter(MapCatalog::file)
-                    .filter(p -> p.getFileName().toString().matches("r\\\\.-?[0-9]+\\\\.-?[0-9]+\\\\.mca")).toList();
+                    .filter(p -> p.getFileName().toString().matches("r\\.-?[0-9]+\\.-?[0-9]+\\.mca")).toList();
             }
         } else throw new IOException("Invalid region source");
         if (regions.isEmpty()) throw new IOException("No region files found");
         for (Path region : regions) {
-            if (!region.getFileName().toString().matches("r\\\\.-?[0-9]+\\\\.-?[0-9]+\\\\.mca"))
+            if (!region.getFileName().toString().matches("r\\.-?[0-9]+\\.-?[0-9]+\\.mca"))
                 throw new IOException("Invalid region filename");
             if (Files.size(region) < 8192 || Files.size(region) % 4096 != 0)
                 throw new IOException("Invalid region file size: " + region.getFileName());
