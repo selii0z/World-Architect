@@ -12,6 +12,8 @@ public final class LiveInstance {
     private final UUID id;
     private final Path terrain;
     private State state = State.PREPARED;
+    private DimensionBackend owner;
+    private MinecraftServer owningServer;
 
     public LiveInstance(UUID id, Path terrain) {
         this.id = java.util.Objects.requireNonNull(id);
@@ -26,9 +28,11 @@ public final class LiveInstance {
     public synchronized CompletableFuture<ServerLevel> open(MinecraftServer server, DimensionBackend backend) {
         if (state != State.PREPARED || !backend.supported(server))
             return CompletableFuture.failedFuture(new IllegalStateException("Instance cannot be opened"));
+        owner = backend;
+        owningServer = server;
         state = State.OPENING;
         try {
-            return backend.open(server, id, terrain).whenComplete((level, error) -> {
+            return backend.open(server, id, terrain).thenApply(level -> java.util.Objects.requireNonNull(level, "Backend returned no level")).whenComplete((level, error) -> {
                 synchronized (this) { state = error == null && level != null ? State.ACTIVE : State.FAILED; }
             });
         } catch (RuntimeException e) {
@@ -38,7 +42,7 @@ public final class LiveInstance {
     }
 
     public synchronized CompletableFuture<Void> close(MinecraftServer server, DimensionBackend backend) {
-        if (state != State.ACTIVE)
+        if (state != State.ACTIVE || owner != backend || owningServer != server)
             return CompletableFuture.failedFuture(new IllegalStateException("Instance not active"));
         state = State.CLOSING;
         try {
