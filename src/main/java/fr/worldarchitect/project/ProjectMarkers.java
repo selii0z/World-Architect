@@ -72,6 +72,18 @@ public final class ProjectMarkers {
   for(int i=0;i<markers.size();i++){var old=markers.get(i);if(id.equals(old.id())){var updated=new Marker(id,name,old.x(),old.y(),old.z(),category,color);markers.set(i,updated);save(path(player,project),markers);return updated;}}
   throw new IOException("Marker not found");
  }
+ public static Marker moveSurface(ServerPlayer player,UUID id,int x,int z)throws IOException{
+  var project=ConstructionSessions.requireEditor(player);
+  var level=player.serverLevel();
+  if(!project.bounds().contains(x+0.5,z+0.5)||Math.abs((long)x)>29999984||Math.abs((long)z)>29999984)throw new IOException("Outside project");
+  var chunk=level.getChunkSource().getChunkNow(x>>4,z>>4);
+  if(chunk==null)throw new IOException("Terrain not loaded");
+  int y=chunk.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE,x&15,z&15)+1;
+  if(y<=level.getMinBuildHeight()||y>=level.getMaxBuildHeight()-1)throw new IOException("Invalid surface");
+  var markers=new ArrayList<>(list(player));
+  for(int i=0;i<markers.size();i++){var old=markers.get(i);if(id.equals(old.id())){var moved=new Marker(id,old.name(),x,y,z,old.category(),old.color());markers.set(i,moved);save(path(player,project),markers);return moved;}}
+  throw new IOException("Marker not found");
+ }
  public static boolean remove(ServerPlayer player,UUID id)throws IOException{
   var project=ConstructionSessions.requireEditor(player);
   var markers=new ArrayList<>(list(player));
