@@ -13,7 +13,7 @@ import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 @EventBusSubscriber(modid="worldarchitect")
 public final class BlockEditScheduler {
     private BlockEditScheduler(){}
-    private record Running(UUID owner, BlockEditJob job, java.nio.file.Path archive){}
+    private record Running(UUID owner, BlockEditJob job, java.nio.file.Path archive, BlockEditHistory.Entry replay, boolean reverse){}
     private static final Map<MinecraftServer,Map<ResourceKey<Level>,Running>> JOBS=new IdentityHashMap<>();
     public static void submit(ServerPlayer player,StructureSelection.Selection selection,EditGeometry.Shape shape,
             net.minecraft.world.level.block.state.BlockState target,net.minecraft.world.level.block.Block filter) throws java.io.IOException {
@@ -28,7 +28,31 @@ public final class BlockEditScheduler {
         var archive=server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT)
             .resolve("worldarchitect/block-edits").resolve(project.id().toString()).resolve(UUID.randomUUID()+".pending.nbt");
         BlockEditArchive.save(archive,player.serverLevel(),player.getUUID(),changes);
-        jobs.put(dimension,new Running(player.getUUID(),new BlockEditJob(player.serverLevel(),changes),archive));
+        jobs.put(dimension,new Running(player.getUUID(),new BlockEditJob(player.serverLevel(),changes),archive,null,false));
+    }
+    public static boolean replay(ServerPlayer player,boolean reverse)throws java.io.IOException{
+        var project=ConstructionSessions.requireEditor(player);
+        var server=player.getServer();
+        var level=player.serverLevel();
+        var jobs=JOBS.computeIfAbsent(server,s->new LinkedHashMap<>());
+        if(jobs.containsKey(level.dimension()))throw new IllegalStateException("Construction operation already running");
+        var dir=server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT)
+            .resolve("worldarchitect/block-edits").resolve(project.id().toString());
+        var history=BlockEditHistory.load(dir.resolve("history.json"));
+        var entry=history.peek(reverse,player.getUUID());
+        if(entry==null)return false;
+        var changes=BlockEditArchive.load(dir.resolve(entry.archive()+".complete.nbt"),level,player.getUUID(),reverse);
+        for(var change:changes){
+            var p=change.position();
+            if(p.getY()<level.getMinBuildHeight()||p.getY()>=level.getMaxBuildHeight()
+                ||!project.bounds().contains(p.getX()+0.5,p.getZ()+0.5)||!level.getWorldBorder().isWithinBounds(p)
+                ||!level.hasChunkAt(p)||!level.getBlockState(p).equals(change.before()))
+                throw new java.io.IOException("Replay conflicts with current terrain or bounds");
+        }
+        var pending=dir.resolve(UUID.randomUUID()+".pending.nbt");
+        BlockEditArchive.save(pending,level,player.getUUID(),changes);
+        jobs.put(level.dimension(),new Running(player.getUUID(),new BlockEditJob(level,changes),pending,entry,reverse));
+        return true;
     }
     public static boolean cancel(ServerPlayer player){
         if(!player.getServer().isSameThread())throw new IllegalStateException("Server thread required");
@@ -53,7 +77,11 @@ public final class BlockEditScheduler {
             case COMPLETE,CANCELLED,FAILED -> {
                 iterator.remove();
                 try{
-                    if(job.state()==BlockEditJob.State.COMPLETE){
+                    if(job.state()==BlockEditJob.State.COMPLETE&&entry.replay()!=null){
+                        var history=BlockEditHistory.load(entry.archive().resolveSibling("history.json"));
+                        history.confirm(entry.reverse(),entry.replay());
+                        java.nio.file.Files.deleteIfExists(entry.archive());
+                    }else if(job.state()==BlockEditJob.State.COMPLETE){
                         var destination=entry.archive().resolveSibling(entry.archive().getFileName().toString().replace(".pending.nbt",".complete.nbt"));
                         java.nio.file.Files.move(entry.archive(),destination,java.nio.file.StandardCopyOption.ATOMIC_MOVE);
                         var history=BlockEditHistory.load(destination.resolveSibling("history.json"));
