@@ -251,6 +251,7 @@ public final class ProjectPackets {
      message="Projet créé dans la collection ; redémarrage nécessaire";
     }
     else if("create".equals(a.action())) ProjectService.create(player,a.name(),a.worldType(),a.size(),a.width(),a.profile(),a.automaticBackups());
+    else if("enter_construction".equals(a.action())) fr.worldarchitect.project.ConstructionSessions.enter(player,java.util.UUID.fromString(a.name()));
     else if("visit".equals(a.action())) fr.worldarchitect.project.VisitSessions.enter(player,java.util.UUID.fromString(a.name()));
     else if("leave".equals(a.action())) {fr.worldarchitect.project.ConstructionSessions.leave(player);SELECTIONS.clear(player.getUUID());}
     else if(!"list".equals(a.action())) throw new IllegalArgumentException("Unknown action");
