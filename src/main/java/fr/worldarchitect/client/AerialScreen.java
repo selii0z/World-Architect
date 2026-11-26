@@ -42,6 +42,17 @@ public final class AerialScreen extends Screen {
    var t=r.tile();
    if(t.size()==64&&t.colors().length==4096&&t.step()==step&&t.originX()==cx-32*step&&t.originZ()==cz-32*step&&t.dimension().equals(minecraft.level.dimension().location().toString())){
     for(int i=0;i<4096;i++){int c=t.colors()[i];if(c!=0){int px=x+i%64*pixel,py=y+i/64*pixel;g.fill(px,py,px+pixel,py+pixel,c);}}
+    if(t.length()>0&&t.width()>0){
+     int left=x+(int)Math.round((-t.length()/2.0-t.originX())/step*pixel),right=x+(int)Math.round((t.length()/2.0-t.originX())/step*pixel);
+     int top=y+(int)Math.round((-t.width()/2.0-t.originZ())/step*pixel),bottom=y+(int)Math.round((t.width()/2.0-t.originZ())/step*pixel);
+     int l=Math.max(x,left),rgt=Math.min(x+size,right),a=Math.max(y,top),b=Math.min(y+size,bottom);
+     if(l<rgt&&a<b){
+      if(left>=x&&left<x+size)g.fill(left,a,left+1,b,0xffff4444);
+      if(right>=x&&right<x+size)g.fill(right,a,right+1,b,0xffff4444);
+      if(top>=y&&top<y+size)g.fill(l,top,rgt,top+1,0xffff4444);
+      if(bottom>=y&&bottom<y+size)g.fill(l,bottom,rgt,bottom+1,0xffff4444);
+     }
+    }
     var markers=ProjectPackets.markers();
     if(markers!=null&&markers.success()&&t.dimension().equals(markers.dimension())){
      for(var m:markers.markers()){
