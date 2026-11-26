@@ -6,6 +6,9 @@ public final class OfflineAerialBuilder {
  public record Overview(int originX,int originZ,int step,int width,int height,int[] colors,int chunks){}
  /** Call off the server tick thread, with an immutable terrain snapshot. */
  public static Overview build(Path terrain,int originX,int originZ,int length,int width)throws IOException{
+  return build(terrain,originX,originZ,length,width,(done,total)->{});
+ }
+ public static Overview build(Path terrain,int originX,int originZ,int length,int width,java.util.function.BiConsumer<Integer,Integer> progress)throws IOException{
   if(length<1||width<1||length>60000||width>60000)throw new IOException("Invalid overview bounds");
   int step=1;while((length+step-1)/step>1024||(width+step-1)/step>1024)step*=2;
   int w=(length+step-1)/step,h=(width+step-1)/step;
@@ -13,12 +16,16 @@ public final class OfflineAerialBuilder {
   Path region=terrain.resolve("region");
   if(!Files.isDirectory(region,LinkOption.NOFOLLOW_LINKS))throw new IOException("Missing region directory");
   try(var files=Files.list(region)){
-   var iterator=files.iterator();
+   var regions=files.filter(p->p.getFileName().toString().matches("r\\.-?\\d+\\.-?\\d+\\.mca")).limit(16385).toList();
+   if(regions.size()>16384)throw new IOException("Too many region files");
+   int done=0;progress.accept(0,regions.size());
+   var iterator=regions.iterator();
    while(iterator.hasNext()){
     if(Thread.currentThread().isInterrupted())throw new IOException("Overview cancelled");
     Path file=iterator.next();
     if(!file.getFileName().toString().matches("r\\.-?\\d+\\.-?\\d+\\.mca"))continue;
     for(var chunk:RegionIndex.read(file)){
+     if(Thread.currentThread().isInterrupted())throw new IOException("Overview cancelled");
      long bx=chunk.x()*16L,bz=chunk.z()*16L;
      if(bx+16<=originX||bz+16<=originZ||bx>=originX+(long)length||bz>=originZ+(long)width)continue;
      int dx=(int)(bx-originX),dz=(int)(bz-originZ);
@@ -30,6 +37,7 @@ public final class OfflineAerialBuilder {
       if(px>=0&&pz>=0&&px<length&&pz<width)colors[pz/step*w+px/step]=surface[z*16+x];
      }
     }
+    progress.accept(++done,regions.size());
    }
   }
   return new Overview(originX,originZ,step,w,h,colors,chunks);
