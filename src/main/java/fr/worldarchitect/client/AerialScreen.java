@@ -25,7 +25,7 @@ public final class AerialScreen extends Screen {
   button("<",x,y,30,()->move(-1,0));button(">",x+34,y,30,()->move(1,0));
   button("N",x+68,y,30,()->move(0,-1));button("S",x+102,y,30,()->move(0,1));
   button("+",x+136,y,30,()->{step=Math.max(1,step/2);changed();});
-  button("-",x+170,y,30,()->{step=Math.min(16,step*2);changed();});
+  button("-",x+170,y,30,()->{step=Math.min(1024,step*2);changed();});
   button("Centrer",x,y+22,64,()->{if(minecraft.player!=null){cx=minecraft.player.getBlockX();cz=minecraft.player.getBlockZ();refresh();}});
   button("Actualiser",x+68,y+22,64,this::refresh);button("Retour",x+136,y+22,64,this::onClose);
  }
@@ -72,7 +72,7 @@ public final class AerialScreen extends Screen {
  }
  @Override public boolean mouseScrolled(double x,double y,double horizontal,double vertical){
   if(!overMap(x,y)||vertical==0)return super.mouseScrolled(x,y,horizontal,vertical);
-  int old=step;step=vertical>0?Math.max(1,step/2):Math.min(16,step*2);
+  int old=step;step=vertical>0?Math.max(1,step/2):Math.min(1024,step*2);
   int pixel=pixelSize();cx+=(int)Math.round((x-width/2.0)/pixel*(old-step));cz+=(int)Math.round((y-24-32*pixel)/pixel*(old-step));changed();return true;
  }
  @Override public boolean mouseClicked(double x,double y,int button){
