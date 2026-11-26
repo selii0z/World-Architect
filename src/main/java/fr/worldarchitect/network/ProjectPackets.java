@@ -190,12 +190,19 @@ public final class ProjectPackets {
      }catch(Exception ex){com.mojang.logging.LogUtils.getLogger().warn("Schematic import failed",ex);response=new CatalogResult(false,"Échec de l’opération de terrain de la structure",java.util.List.of());}
      PacketDistributor.sendToPlayer(player,new CatalogReply(GSON.toJson(response)));return;
     }
-    if("overview_image".equals(a.action())){
+    if("overview_image".equals(a.action())||"project_overview_image".equals(a.action())){
      var server=player.getServer();var id=player.getUUID();
+     java.nio.file.Path activeFile=null;
+     if("project_overview_image".equals(a.action())){
+      var project=fr.worldarchitect.project.ProjectService.forLevel(player.serverLevel()).orElseThrow();
+      var location=net.minecraft.resources.ResourceLocation.parse(project.dimensionId());
+      activeFile=server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).resolve("dimensions").resolve(location.getNamespace()).resolve(location.getPath()).resolve("overview.png");
+     }
+     var projectFile=activeFile;
      java.util.concurrent.CompletableFuture.runAsync(()->{
       byte[] data=new byte[0];
       try{
-       var file=fr.worldarchitect.project.MapCatalog.resolveTerrain(a.name(),a.profile()).resolve("overview.png");
+       var file=projectFile!=null?projectFile:fr.worldarchitect.project.MapCatalog.resolveTerrain(a.name(),a.profile()).resolve("overview.png");
        if(java.nio.file.Files.isRegularFile(file,java.nio.file.LinkOption.NOFOLLOW_LINKS))try(var in=java.nio.file.Files.newInputStream(file)){var bytes=in.readNBytes(5242881);if(bytes.length<=5242880)data=bytes;}
       }catch(Exception ex){com.mojang.logging.LogUtils.getLogger().warn("Overview image read failed",ex);}
       var bytes=data;server.execute(()->{var online=server.getPlayerList().getPlayer(id);if(online!=null&&online.hasPermissions(2)){int total=Math.max(1,(bytes.length+131071)/131072);for(int i=0;i<total;i++)PacketDistributor.sendToPlayer(online,new OverviewImage(i,total,java.util.Arrays.copyOfRange(bytes,i*131072,Math.min(bytes.length,(i+1)*131072))));}});
