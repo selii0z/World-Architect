@@ -158,7 +158,7 @@ public final class ProjectPackets {
      }catch(Exception ex){com.mojang.logging.LogUtils.getLogger().warn("Schematic import failed",ex);response=new CatalogResult(false,"Échec de l’opération de terrain de la structure",java.util.List.of());}
      PacketDistributor.sendToPlayer(player,new CatalogReply(GSON.toJson(response)));return;
     }
-    if("import_map".equals(a.action())||"duplicate_map".equals(a.action())||"export_map".equals(a.action())){
+    if("import_map".equals(a.action())||"duplicate_map".equals(a.action())||"export_map".equals(a.action())||"backup_map".equals(a.action())||"restore_map".equals(a.action())){
      if(!IMPORTING.compareAndSet(false,true)){
       PacketDistributor.sendToPlayer(player,new CatalogReply(GSON.toJson(new CatalogResult(false,"Une opération de terrain est déjà en cours",java.util.List.of()))));return;
      }
@@ -168,7 +168,13 @@ public final class ProjectPackets {
       CatalogResult response;
       try{
        String[] names=a.profile().split("\\|",-1);
-       if("export_map".equals(a.action())){
+       if("backup_map".equals(a.action())){
+        if(names.length!=2)throw new IllegalArgumentException("Invalid backup request");
+        fr.worldarchitect.project.CatalogBackups.create(a.name(),names[0],names[1]);
+       }else if("restore_map".equals(a.action())){
+        if(names.length!=3)throw new IllegalArgumentException("Invalid restore request");
+        fr.worldarchitect.project.CatalogBackups.restore(a.name(),names[0],names[1],names[2]);
+       }else if("export_map".equals(a.action())){
         if(names.length!=1)throw new IllegalArgumentException("Invalid export request");
         fr.worldarchitect.project.MapExport.export(a.name(),names[0]);
        }else if("duplicate_map".equals(a.action())){
@@ -178,9 +184,9 @@ public final class ProjectPackets {
         if(names.length!=2)throw new IllegalArgumentException("Invalid import request");
         fr.worldarchitect.project.MapCatalog.importSource(a.name(),names[0],names[1]);
        }
-       response=new CatalogResult(true,"export_map".equals(a.action())?"Export ZIP terminé":"duplicate_map".equals(a.action())?"Duplication terminée":"Importation terminée",fr.worldarchitect.project.MapCatalog.scan());
+       response=new CatalogResult(true,"backup_map".equals(a.action())?"Sauvegarde terminée":"restore_map".equals(a.action())?"Restauration terminée":"export_map".equals(a.action())?"Export ZIP terminé":"duplicate_map".equals(a.action())?"Duplication terminée":"Importation terminée",fr.worldarchitect.project.MapCatalog.scan());
        if(GSON.toJson(response).length()>250000)response=new CatalogResult(false,"Import terminé ; catalogue trop volumineux",java.util.List.of());
-      }catch(Exception ex){com.mojang.logging.LogUtils.getLogger().warn("Map import failed",ex);response=new CatalogResult(false,"Échec de l’importation",java.util.List.of());}
+      }catch(Exception ex){com.mojang.logging.LogUtils.getLogger().warn("Map import failed",ex);response=new CatalogResult(false,"Échec de l’opération de terrain",java.util.List.of());}
       finally{IMPORTING.set(false);}
       var reply=response;
       server.execute(()->{var online=server.getPlayerList().getPlayer(playerId);if(online!=null)PacketDistributor.sendToPlayer(online,new CatalogReply(GSON.toJson(reply)));});
