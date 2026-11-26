@@ -69,6 +69,15 @@ public final class ProjectPackets {
   request(new Action("place_structure",p.structure(),null,0,target,p.mirrored()));
  }
  public static void cancelPreview(){resetClientPreview();request(new Action("library",null,null,0,null,false));}
+ public record BackupResult(boolean success,String collection,String map,String message,java.util.List<String> archives){}
+ public record BackupReply(String json) implements CustomPacketPayload {
+  public static final Type<BackupReply> TYPE=new Type<>(ResourceLocation.fromNamespaceAndPath("worldarchitect","backup_reply"));
+  public static final StreamCodec<RegistryFriendlyByteBuf,BackupReply> CODEC=StreamCodec.of((b,p)->b.writeUtf(p.json(),262144),b->new BackupReply(b.readUtf(262144)));
+  public Type<BackupReply> type(){return TYPE;}
+ }
+ private static volatile BackupResult backups;
+ public static BackupResult backups(){return backups;}
+ public static void refreshBackups(String collection,String map){backups=null;request(new Action("backup_list",collection,null,0,map,false));}
  public record CatalogResult(boolean success,String message,java.util.List<fr.worldarchitect.project.MapCatalog.Collection> collections){}
  public record CatalogReply(String json) implements CustomPacketPayload {
   public static final Type<CatalogReply> TYPE=new Type<>(ResourceLocation.fromNamespaceAndPath("worldarchitect","catalog_reply"));
@@ -101,9 +110,10 @@ public final class ProjectPackets {
  private static volatile Result latest;
  public static Result latest(){return latest;}
  @SubscribeEvent public static void register(RegisterPayloadHandlersEvent e){
-  var r=e.registrar("12");
+  var r=e.registrar("13");
   r.playToClient(AerialReply.TYPE,AerialReply.CODEC,(p,c)->c.enqueueWork(()->aerial=GSON.fromJson(p.json(),AerialResult.class)));
   r.playToClient(MarkerReply.TYPE,MarkerReply.CODEC,(p,c)->c.enqueueWork(()->markers=GSON.fromJson(p.json(),MarkerResult.class)));
+  r.playToClient(BackupReply.TYPE,BackupReply.CODEC,(p,c)->c.enqueueWork(()->backups=GSON.fromJson(p.json(),BackupResult.class)));
   r.playToClient(CatalogReply.TYPE,CatalogReply.CODEC,(p,c)->c.enqueueWork(()->catalog=GSON.fromJson(p.json(),CatalogResult.class)));
   r.playToClient(GhostReply.TYPE,GhostReply.CODEC,(p,c)->c.enqueueWork(()->acceptGhost(GSON.fromJson(p.json(),GhostChunk.class))));
   r.playToServer(Request.TYPE,Request.CODEC,ProjectPackets::handle);
@@ -157,6 +167,18 @@ public final class ProjectPackets {
       if(GSON.toJson(response).length()>250000)response=new CatalogResult(true,"Structure importée ; catalogue trop volumineux",java.util.List.of());
      }catch(Exception ex){com.mojang.logging.LogUtils.getLogger().warn("Schematic import failed",ex);response=new CatalogResult(false,"Échec de l’opération de terrain de la structure",java.util.List.of());}
      PacketDistributor.sendToPlayer(player,new CatalogReply(GSON.toJson(response)));return;
+    }
+    if("backup_list".equals(a.action())){
+     var server=player.getServer();var playerId=player.getUUID();
+     java.util.concurrent.CompletableFuture.runAsync(()->{
+      BackupResult response;
+      try{
+       response=new BackupResult(true,a.name(),a.profile(),"Sauvegardes actualisées",fr.worldarchitect.project.CatalogBackups.list(a.name(),a.profile()));
+       if(GSON.toJson(response).length()>250000)throw new IllegalStateException("Backup list too large");
+      }catch(Exception ex){response=new BackupResult(false,a.name(),a.profile(),"Impossible de lire les sauvegardes",java.util.List.of());}
+      var reply=response;
+      server.execute(()->{var online=server.getPlayerList().getPlayer(playerId);if(online!=null)PacketDistributor.sendToPlayer(online,new BackupReply(GSON.toJson(reply)));});
+     });return;
     }
     if("import_map".equals(a.action())||"duplicate_map".equals(a.action())||"export_map".equals(a.action())||"backup_map".equals(a.action())||"restore_map".equals(a.action())){
      if(!IMPORTING.compareAndSet(false,true)){
