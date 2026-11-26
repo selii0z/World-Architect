@@ -75,6 +75,7 @@ public final class ProjectPackets {
   public static final StreamCodec<RegistryFriendlyByteBuf,CatalogReply> CODEC=StreamCodec.of((b,p)->b.writeUtf(p.json(),262144),b->new CatalogReply(b.readUtf(262144)));
   public Type<CatalogReply> type(){return TYPE;}
  }
+ private static final java.util.concurrent.atomic.AtomicBoolean IMPORTING=new java.util.concurrent.atomic.AtomicBoolean();
  private static volatile CatalogResult catalog;
  public static CatalogResult catalog(){return catalog;}
  public static void refreshCatalog(){catalog=null;request(new Action("catalog",null,null,0,null,false));}
@@ -100,6 +101,26 @@ public final class ProjectPackets {
     String message="OK";
     PreviewBounds preview=null;
     java.util.List<fr.worldarchitect.project.StructureLibrary.Metadata> structures=java.util.List.of();
+    if("import_map".equals(a.action())){
+     if(!IMPORTING.compareAndSet(false,true)){
+      PacketDistributor.sendToPlayer(player,new CatalogReply(GSON.toJson(new CatalogResult(false,"Une importation est déjà en cours",java.util.List.of()))));return;
+     }
+     var server=player.getServer();var playerId=player.getUUID();
+     PacketDistributor.sendToPlayer(player,new CatalogReply(GSON.toJson(new CatalogResult(true,"Importation en cours...",java.util.List.of()))));
+     java.util.concurrent.CompletableFuture.runAsync(()->{
+      CatalogResult response;
+      try{
+       String[] names=a.profile().split("\\|",-1);
+       if(names.length!=2)throw new IllegalArgumentException("Invalid import request");
+       fr.worldarchitect.project.MapCatalog.importSource(a.name(),names[0],names[1]);
+       response=new CatalogResult(true,"Importation terminée",fr.worldarchitect.project.MapCatalog.scan());
+       if(GSON.toJson(response).length()>250000)response=new CatalogResult(false,"Import terminé ; catalogue trop volumineux",java.util.List.of());
+      }catch(Exception ex){com.mojang.logging.LogUtils.getLogger().warn("Map import failed",ex);response=new CatalogResult(false,"Échec de l’importation",java.util.List.of());}
+      finally{IMPORTING.set(false);}
+      var reply=response;
+      server.execute(()->{var online=server.getPlayerList().getPlayer(playerId);if(online!=null)PacketDistributor.sendToPlayer(online,new CatalogReply(GSON.toJson(reply)));});
+     });return;
+    }
     if("catalog".equals(a.action())||"create_collection".equals(a.action())){
      CatalogResult response;
      try{
