@@ -11,6 +11,8 @@ public final class AerialScreen extends Screen {
  private boolean initialized;
  private long lastRequest;
  private boolean dirty,dragging;
+ private fr.worldarchitect.project.ProjectMarkers.Marker moving;
+ public void beginMove(fr.worldarchitect.project.ProjectMarkers.Marker marker){moving=marker;}
  private fr.worldarchitect.project.AerialMap.Tile previousTile;
  private double dragX,dragZ;
  private int pixelSize(){return Math.max(1,Math.min((width-20)/64,(height-82)/64));}
@@ -88,6 +90,7 @@ public final class AerialScreen extends Screen {
   String hint="Clic droit : créer / gérer un marqueur";
   int hintColor=0xffb6c69c;
   if(markerStatus!=null&&markerStatus.message()!=null&&!markerStatus.message().isBlank()&&minecraft.level!=null&&minecraft.level.dimension().location().toString().equals(markerStatus.dimension())){hint=markerStatus.message();hintColor=markerStatus.success()?0xff8fd28a:0xffff7777;}
+  if(moving!=null){hint="Choisir la destination — clic droit pour annuler";hintColor=0xffe5c441;}
   g.drawCenteredString(font,font.plainSubstrByWidth(hint,Math.max(1,width-12)),width/2,height-72,hintColor);
   super.render(g,mx,my,delta);
  }
@@ -97,6 +100,8 @@ public final class AerialScreen extends Screen {
   int pixel=pixelSize();cx+=(int)Math.round((x-width/2.0)/pixel*(old-step));cz+=(int)Math.round((y-24-32*pixel)/pixel*(old-step));changed();return true;
  }
  @Override public boolean mouseClicked(double x,double y,int button){
+  if(moving!=null&&button==1){moving=null;return true;}
+  if(moving!=null&&button==0&&overMap(x,y)){int pixel=pixelSize();int bx=cx+(int)Math.floor((x-(width-64*pixel)/2.0)/pixel*step)-32*step;int bz=cz+(int)Math.floor((y-24)/pixel*step)-32*step;var marker=moving; minecraft.setScreen(new net.minecraft.client.gui.screens.ConfirmScreen(ok->{if(ok){ProjectPackets.request(new ProjectPackets.Action("marker_move",marker.id().toString(),null,0,bx+","+bz,false));moving=null;}minecraft.setScreen(this);},Component.literal("Déplacer "+marker.name()),Component.literal("X: "+bx+" Z: "+bz+" ?")));return true;}
   if(button==1&&overMap(x,y)&&minecraft.level!=null){
    var markers=ProjectPackets.markers();
    if(markers!=null&&markers.success()&&markers.dimension().equals(minecraft.level.dimension().location().toString())){
