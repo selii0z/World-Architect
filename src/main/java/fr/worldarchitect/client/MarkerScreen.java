@@ -21,7 +21,7 @@ public final class MarkerScreen extends Screen{
  private void button(String label,int x,int y,int w,Runnable run){addRenderableWidget(Button.builder(Component.literal(label),b->run.run()).bounds(x,y,w,20).build());}
  @Override protected void init(){
   int w=Math.min(340,width-24),x=(width-w)/2,y=height/2-105;
-  for(int i=0;i<5;i++){final int index=i;button("X",x+w-34,y+30+i*22,22,()->{var list=rows();int n=page*5+index;if(n<list.size())send("marker_remove",list.get(n).id().toString());});}
+  for(int i=0;i<5;i++){final int index=i;button("TP",x+w-70,y+30+i*22,32,()->{var list=rows();int n=page*5+index;if(n<list.size())send("marker_teleport",list.get(n).id().toString());});button("X",x+w-34,y+30+i*22,22,()->{var list=rows();int n=page*5+index;if(n<list.size())send("marker_remove",list.get(n).id().toString());});}
   button("<",x+12,y+144,30,()->page=Math.max(0,page-1));
   button(">",x+w-42,y+144,30,()->{if((page+1)*5<rows().size())page++;});
   button("Actualiser",x+48,y+144,w-96,ProjectPackets::refreshMarkers);
@@ -36,7 +36,7 @@ public final class MarkerScreen extends Screen{
   g.fill(0,0,width,height,0xff1c201b);g.fill(x,y,x+w,y+264,0xff2c3427);
   g.drawCenteredString(font,"MARQUEURS DU PROJET",width/2,y+10,0xffb6c69c);
   var list=rows();page=Math.min(page,Math.max(0,(list.size()-1)/5));
-  for(int i=0;i<5&&page*5+i<list.size();i++){var m=list.get(page*5+i);g.drawString(font,font.plainSubstrByWidth(m.name()+"  ["+m.x()+", "+m.y()+", "+m.z()+"]",w-60),x+12,y+36+i*22,palette[m.color().ordinal()]);}
+  for(int i=0;i<5&&page*5+i<list.size();i++){var m=list.get(page*5+i);g.drawString(font,font.plainSubstrByWidth(m.name()+"  ["+m.x()+", "+m.y()+", "+m.z()+"]",w-88),x+12,y+36+i*22,palette[m.color().ordinal()]);}
   var r=ProjectPackets.markers();g.drawCenteredString(font,r==null?"Chargement...":font.plainSubstrByWidth(r.message(),w-24),width/2,y+244,0xffb6c69c);
   super.render(g,mx,my,delta);
  }
