@@ -127,7 +127,8 @@ public final class ArchitectScreen extends Screen {
    button("Bibliothèque",x+w/2+2,y+192,(w-28)/2,()->{library=true;libraryPage=0;rebuild();action("library");});
    button("Collections de maps",x+12,y+216,(w-28)/2,()->{catalogOpen=true;collection=null;importSource=null;catalogPage=0;rebuild();ProjectPackets.refreshCatalog();});
    button("Outils",x+w/2+2,y+216,(w-28)/2,()->{toolsOpen=true;rebuild();});
-   button("Marqueurs",x+12,y+240,w-24,()->{ProjectPackets.refreshMarkers();minecraft.setScreen(new MarkerScreen(this));});
+   button("Carte aérienne",x+w/2+2,y+240,(w-28)/2,()->minecraft.setScreen(new AerialScreen(this)));
+   button("Marqueurs",x+12,y+240,(w-28)/2,()->{ProjectPackets.refreshMarkers();minecraft.setScreen(new MarkerScreen(this));});
    refresh();
   }else{
    nameBox=new EditBox(font,x+12,y+34,w-24,20,Component.literal("Nom du projet"));
