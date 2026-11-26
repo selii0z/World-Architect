@@ -22,7 +22,11 @@ public final class InventoryJournal {
   Path target=path(player);
   if(Files.exists(target)) throw new IOException("Unresolved inventory snapshot");
   CompoundTag root=new CompoundTag();
-  root.putInt("schema",1);
+  root.putInt("schema",2);
+  root.putUUID("owner",player.getUUID());
+  root.putInt("experienceLevel",player.experienceLevel);
+  root.putInt("totalExperience",player.totalExperience);
+  root.putFloat("experienceProgress",player.experienceProgress);
   root.put("inventory",player.getInventory().save(new ListTag()));
   root.putInt("selected",player.getInventory().selected);
   Path tmp=Files.createTempFile(target.getParent(),"inventory-",".tmp");
@@ -37,10 +41,17 @@ public final class InventoryJournal {
   if(!player.getServer().isSameThread()) throw new IllegalStateException("Server thread required");
   Path target=path(player);
   CompoundTag root=NbtIo.readCompressed(target,NbtAccounter.create(32L*1024*1024));
-  if(root.getInt("schema")!=1||!root.contains("inventory",9)) throw new IOException("Invalid inventory snapshot");
+  int schema=root.getInt("schema");
+  if((schema!=1&&schema!=2)||!root.contains("inventory",9)||(schema==2&&(!root.hasUUID("owner")||!root.getUUID("owner").equals(player.getUUID())))) throw new IOException("Invalid inventory snapshot");
   int selected=root.getInt("selected");
   if(selected<0||selected>8) throw new IOException("Invalid selected slot");
+  if(schema==2&&(!root.contains("experienceLevel",3)||!root.contains("totalExperience",3)||!root.contains("experienceProgress",5)||root.getInt("experienceLevel")<0||root.getInt("totalExperience")<0||!Float.isFinite(root.getFloat("experienceProgress"))||root.getFloat("experienceProgress")<0||root.getFloat("experienceProgress")>1))throw new IOException("Invalid experience snapshot");
   player.getInventory().load(root.getList("inventory",10));
+  if(schema==2){
+   player.experienceLevel=root.getInt("experienceLevel");
+   player.totalExperience=root.getInt("totalExperience");
+   player.experienceProgress=root.getFloat("experienceProgress");
+  }
   player.getInventory().selected=selected;
   player.inventoryMenu.broadcastChanges();
  }
