@@ -69,10 +69,20 @@ public final class ProjectPackets {
   request(new Action("place_structure",p.structure(),null,0,target,p.mirrored()));
  }
  public static void cancelPreview(){resetClientPreview();request(new Action("library",null,null,0,null,false));}
+ public record CatalogResult(boolean success,String message,java.util.List<fr.worldarchitect.project.MapCatalog.Collection> collections){}
+ public record CatalogReply(String json) implements CustomPacketPayload {
+  public static final Type<CatalogReply> TYPE=new Type<>(ResourceLocation.fromNamespaceAndPath("worldarchitect","catalog_reply"));
+  public static final StreamCodec<RegistryFriendlyByteBuf,CatalogReply> CODEC=StreamCodec.of((b,p)->b.writeUtf(p.json(),262144),b->new CatalogReply(b.readUtf(262144)));
+  public Type<CatalogReply> type(){return TYPE;}
+ }
+ private static volatile CatalogResult catalog;
+ public static CatalogResult catalog(){return catalog;}
+ public static void refreshCatalog(){catalog=null;request(new Action("catalog",null,null,0,null,false));}
  private static volatile Result latest;
  public static Result latest(){return latest;}
  @SubscribeEvent public static void register(RegisterPayloadHandlersEvent e){
-  var r=e.registrar("9");
+  var r=e.registrar("10");
+  r.playToClient(CatalogReply.TYPE,CatalogReply.CODEC,(p,c)->c.enqueueWork(()->catalog=GSON.fromJson(p.json(),CatalogResult.class)));
   r.playToClient(GhostReply.TYPE,GhostReply.CODEC,(p,c)->c.enqueueWork(()->acceptGhost(GSON.fromJson(p.json(),GhostChunk.class))));
   r.playToServer(Request.TYPE,Request.CODEC,ProjectPackets::handle);
   r.playToClient(Reply.TYPE,Reply.CODEC,(p,c)->c.enqueueWork(()->latest=GSON.fromJson(p.json(),Result.class)));
@@ -90,6 +100,16 @@ public final class ProjectPackets {
     String message="OK";
     PreviewBounds preview=null;
     java.util.List<fr.worldarchitect.project.StructureLibrary.Metadata> structures=java.util.List.of();
+    if("catalog".equals(a.action())||"create_collection".equals(a.action())){
+     CatalogResult response;
+     try{
+      if("create_collection".equals(a.action()))fr.worldarchitect.project.MapCatalog.createCollection(a.name());
+      var collections=fr.worldarchitect.project.MapCatalog.scan();
+      response=new CatalogResult(true,"Catalogue actualisé",collections);
+      if(GSON.toJson(response).length()>250000)throw new IllegalStateException("Catalogue trop volumineux");
+     }catch(Exception ex){response=new CatalogResult(false,"Impossible de lire ou créer la collection",java.util.List.of());}
+     PacketDistributor.sendToPlayer(player,new CatalogReply(GSON.toJson(response)));return;
+    }
     if("preview_structure".equals(a.action())){
      var rotation=net.minecraft.world.level.block.Rotation.valueOf(a.profile());
      var mirror=a.automaticBackups()?net.minecraft.world.level.block.Mirror.FRONT_BACK:net.minecraft.world.level.block.Mirror.NONE;
