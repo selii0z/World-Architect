@@ -26,6 +26,24 @@ public final class OfflineProjectBackups {
   }
  }
  private static boolean valid(String name){return name!=null&&name.matches("(auto|manual)-[0-9]{13}-[0-9a-f-]{36}-[a-zA-Z0-9_-]{1,64}\\.zip");}
+ /** Restore as a new offline terrain copy; never replace the original. */
+ public static Path restoreCopy(Path backupRoot,UUID project,String name,Path stagingRoot,Path destination)throws IOException{
+  if(!SCHEDULER.claimManual(project))throw new IOException("Backup or restore already running");
+  boolean success=false;
+  Path staged=null;
+  try{
+   staged=stageRestore(backupRoot,project,name,stagingRoot);
+   Path result=MapTerrain.snapshot(staged,destination);
+   success=true;
+   return result;
+  }finally{
+   try{
+    if(staged!=null)try(var paths=Files.walk(staged)){
+     for(var p:paths.sorted(Comparator.reverseOrder()).toList())Files.deleteIfExists(p);
+    }
+   }finally{SCHEDULER.complete(project,success,System.nanoTime());}
+  }
+ }
  public static Path stageRestore(Path backupRoot,UUID project,String name,Path stagingRoot)throws IOException{
   if(!valid(name))throw new IOException("Invalid backup name");
   Path dir=backupRoot.resolve(project.toString());
