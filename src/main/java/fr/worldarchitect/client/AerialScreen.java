@@ -85,7 +85,7 @@ public final class AerialScreen extends Screen {
   }
   g.drawCenteredString(font,"X: "+cx+"  Z: "+cz,width/2,height-60,0xffe9eadf);
   var markerStatus=ProjectPackets.markers();
-  String hint="Clic droit : créer un marqueur / TP";
+  String hint="Clic droit : créer / gérer un marqueur";
   int hintColor=0xffb6c69c;
   if(markerStatus!=null&&markerStatus.message()!=null&&!markerStatus.message().isBlank()&&minecraft.level!=null&&minecraft.level.dimension().location().toString().equals(markerStatus.dimension())){hint=markerStatus.message();hintColor=markerStatus.success()?0xff8fd28a:0xffff7777;}
   g.drawCenteredString(font,font.plainSubstrByWidth(hint,Math.max(1,width-12)),width/2,height-72,hintColor);
@@ -107,11 +107,7 @@ public final class AerialScreen extends Screen {
      if(distance<best){best=distance;chosen=m;}
     }
     if(chosen!=null){
-     final var marker=chosen;
-     minecraft.setScreen(new net.minecraft.client.gui.screens.ConfirmScreen(ok->{
-      if(ok)ProjectPackets.request(new ProjectPackets.Action("marker_teleport",marker.id().toString(),null,0,"",false));
-      minecraft.setScreen(this);
-     },Component.literal("Téléportation"),Component.literal("Rejoindre "+marker.name()+" ?")));
+     minecraft.setScreen(new MarkerActionsScreen(this,chosen));
      return true;
     }
    }
