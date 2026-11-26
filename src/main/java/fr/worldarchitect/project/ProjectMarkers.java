@@ -10,7 +10,11 @@ import net.minecraft.world.level.storage.LevelResource;
 public final class ProjectMarkers {
  private static final Gson GSON=new Gson();
  private ProjectMarkers(){}
- public record Marker(UUID id,String name,int x,int y,int z){}
+ public enum Category { GENERAL, BUILDING, ACCESS, LANDMARK, ZONE }
+ public enum Color { WHITE, GREEN, BLUE, YELLOW, RED, PURPLE }
+ public record Marker(UUID id,String name,int x,int y,int z,Category category,Color color){
+  public Marker { if(category==null)category=Category.GENERAL;if(color==null)color=Color.WHITE; }
+ }
  private record Data(List<Marker> markers){}
  private static Path path(ServerPlayer player,Project project){
   return player.getServer().getWorldPath(LevelResource.ROOT).resolve("worldarchitect/markers").resolve(project.id()+".json");
@@ -26,7 +30,8 @@ public final class ProjectMarkers {
    return List.copyOf(data.markers());
   }catch(RuntimeException ex){throw new IOException("Invalid marker data",ex);}
  }
- public static Marker add(ServerPlayer player,String name)throws IOException{
+ public static Marker add(ServerPlayer player,String name)throws IOException{return add(player,name,Category.GENERAL,Color.WHITE);}
+ public static Marker add(ServerPlayer player,String name,Category category,Color color)throws IOException{
   var project=ConstructionSessions.requireEditor(player);
   name=name.strip();
   if(name.isEmpty()||name.length()>64||name.chars().anyMatch(Character::isISOControl))throw new IOException("Invalid marker name");
@@ -34,7 +39,7 @@ public final class ProjectMarkers {
   if(!project.bounds().contains(p.getX()+0.5,p.getZ()+0.5))throw new IOException("Outside project");
   var markers=new ArrayList<>(list(player));
   if(markers.size()>=512)throw new IOException("Marker limit reached");
-  var marker=new Marker(UUID.randomUUID(),name,p.getX(),p.getY(),p.getZ());
+  var marker=new Marker(UUID.randomUUID(),name,p.getX(),p.getY(),p.getZ(),category,color);
   markers.add(marker);save(path(player,project),markers);return marker;
  }
  public static boolean remove(ServerPlayer player,UUID id)throws IOException{
