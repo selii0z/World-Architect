@@ -53,7 +53,7 @@ public final class ProjectPackets {
  private static final fr.worldarchitect.project.StructureSelection SELECTIONS=new fr.worldarchitect.project.StructureSelection();
  private static volatile Action activePreview;
  public static boolean hasActivePreview(){return activePreview!=null;}
- public static void resetClientPreview(){activePreview=null;latest=null;ghostId=null;ghostParts.clear();ghostBlocks=java.util.List.of();}
+ public static void resetClientPreview(){activePreview=null;latest=null;markers=null;ghostId=null;ghostParts.clear();ghostBlocks=java.util.List.of();}
  public static void manipulatePreview(int rotationDelta,boolean flip){
   var a=activePreview;if(a==null)return;
   var rotations=net.minecraft.world.level.block.Rotation.values();
@@ -79,10 +79,20 @@ public final class ProjectPackets {
  private static volatile CatalogResult catalog;
  public static CatalogResult catalog(){return catalog;}
  public static void refreshCatalog(){catalog=null;request(new Action("catalog",null,null,0,null,false));}
+ public record MarkerResult(boolean success,String message,String dimension,java.util.List<fr.worldarchitect.project.ProjectMarkers.Marker> markers){}
+ public record MarkerReply(String json) implements CustomPacketPayload {
+  public static final Type<MarkerReply> TYPE=new Type<>(ResourceLocation.fromNamespaceAndPath("worldarchitect","marker_reply"));
+  public static final StreamCodec<RegistryFriendlyByteBuf,MarkerReply> CODEC=StreamCodec.of((b,p)->b.writeUtf(p.json(),262144),b->new MarkerReply(b.readUtf(262144)));
+  public Type<MarkerReply> type(){return TYPE;}
+ }
+ private static volatile MarkerResult markers;
+ public static MarkerResult markers(){return markers;}
+ public static void refreshMarkers(){markers=null;request(new Action("marker_list",null,null,0,null,false));}
  private static volatile Result latest;
  public static Result latest(){return latest;}
  @SubscribeEvent public static void register(RegisterPayloadHandlersEvent e){
-  var r=e.registrar("10");
+  var r=e.registrar("11");
+  r.playToClient(MarkerReply.TYPE,MarkerReply.CODEC,(p,c)->c.enqueueWork(()->markers=GSON.fromJson(p.json(),MarkerResult.class)));
   r.playToClient(CatalogReply.TYPE,CatalogReply.CODEC,(p,c)->c.enqueueWork(()->catalog=GSON.fromJson(p.json(),CatalogResult.class)));
   r.playToClient(GhostReply.TYPE,GhostReply.CODEC,(p,c)->c.enqueueWork(()->acceptGhost(GSON.fromJson(p.json(),GhostChunk.class))));
   r.playToServer(Request.TYPE,Request.CODEC,ProjectPackets::handle);
@@ -101,6 +111,17 @@ public final class ProjectPackets {
     String message="OK";
     PreviewBounds preview=null;
     java.util.List<fr.worldarchitect.project.StructureLibrary.Metadata> structures=java.util.List.of();
+    if("marker_list".equals(a.action())||"marker_add".equals(a.action())||"marker_remove".equals(a.action())){
+     MarkerResult response;
+     String dimension=player.serverLevel().dimension().location().toString();
+     try{
+      String status="Marqueurs actualisés";
+      if("marker_add".equals(a.action())){fr.worldarchitect.project.ProjectMarkers.add(player,a.name());status="Marqueur ajouté";}
+      if("marker_remove".equals(a.action()))status=fr.worldarchitect.project.ProjectMarkers.remove(player,java.util.UUID.fromString(a.name()))?"Marqueur supprimé":"Marqueur introuvable";
+      response=new MarkerResult(true,status,dimension,fr.worldarchitect.project.ProjectMarkers.list(player));
+     }catch(Exception ex){response=new MarkerResult(false,"Action impossible dans ce projet",dimension,java.util.List.of());}
+     PacketDistributor.sendToPlayer(player,new MarkerReply(GSON.toJson(response)));return;
+    }
     if("import_schematic".equals(a.action())){
      CatalogResult response;
      try{
