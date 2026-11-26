@@ -10,6 +10,7 @@ public final class InstanceManager {
     private final Path worldRoot;
     private final Executor executor;
     private final Map<UUID, InstanceStorage.PreparedInstance> prepared = new ConcurrentHashMap<>();
+    private final Map<UUID, LiveInstance> live = new ConcurrentHashMap<>();
     private final Set<UUID> deleting = ConcurrentHashMap.newKeySet();
 
     public InstanceManager(Path worldRoot, Executor executor) {
@@ -21,6 +22,7 @@ public final class InstanceManager {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 var instance = InstanceStorage.prepare(worldRoot, collection, map);
+                live.put(instance.id(), new LiveInstance(instance.id(), instance.terrain()));
                 prepared.put(instance.id(), instance);
                 return instance.id();
             } catch (IOException e) { throw new CompletionException(e); }
@@ -29,9 +31,21 @@ public final class InstanceManager {
 
     public Set<UUID> listPrepared() { return Set.copyOf(prepared.keySet()); }
 
-    public CompletableFuture<Boolean> discard(UUID id) {
+    public synchronized CompletableFuture<net.minecraft.server.level.ServerLevel> open(net.minecraft.server.MinecraftServer server, UUID id, DimensionBackend backend) {
+        var instance = live.get(id);
+        if(instance == null || deleting.contains(id)) return CompletableFuture.failedFuture(new IllegalStateException("Instance unavailable"));
+        return instance.open(server, backend);
+    }
+
+    public synchronized CompletableFuture<Void> close(net.minecraft.server.MinecraftServer server, UUID id, DimensionBackend backend) {
+        var instance = live.get(id);
+        if(instance == null || deleting.contains(id)) return CompletableFuture.failedFuture(new IllegalStateException("Instance unavailable"));
+        return instance.close(server, backend);
+    }
+
+    public synchronized CompletableFuture<Boolean> discard(UUID id) {
         var instance = prepared.get(id);
-        if (instance == null || !deleting.add(id))
+        if (instance == null || !live.get(id).canDiscard() || !deleting.add(id))
             return CompletableFuture.completedFuture(false);
         try {
             return CompletableFuture.supplyAsync(() -> {
@@ -49,6 +63,7 @@ public final class InstanceManager {
                         }
                     }
                     prepared.remove(id, instance);
+                    live.remove(id);
                     return true;
                 } catch (IOException e) { throw new CompletionException(e); }
                 finally { deleting.remove(id); }
