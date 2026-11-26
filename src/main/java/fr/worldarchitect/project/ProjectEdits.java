@@ -12,6 +12,7 @@ public final class ProjectEdits {
  }
  public static boolean undo(ServerPlayer player) throws IOException {
   var project=ConstructionSessions.requireEditor(player);
+  BlockEditScheduler.requireIdle(player,project);
   var path=historyPath(player,project);
   var history=EditHistory.load(path);
   var owner=player.getUUID();
@@ -36,6 +37,7 @@ public final class ProjectEdits {
  }
  public static boolean redo(ServerPlayer player) throws IOException {
   var project=ConstructionSessions.requireEditor(player);
+  BlockEditScheduler.requireIdle(player,project);
   var path=historyPath(player,project);
   var history=EditHistory.load(path);
   var owner=player.getUUID();
@@ -60,6 +62,7 @@ public final class ProjectEdits {
  }
  public static UUID place(ServerPlayer player,StructurePlacement.Plan requested,boolean includeAir) throws IOException {
   var project=ConstructionSessions.requireEditor(player);
+  BlockEditScheduler.requireIdle(player,project);
   var path=historyPath(player,project);
   var history=EditHistory.load(path);
   var owner=player.getUUID();
