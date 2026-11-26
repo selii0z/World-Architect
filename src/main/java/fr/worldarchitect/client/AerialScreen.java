@@ -40,6 +40,7 @@ public final class AerialScreen extends Screen {
   button("-",x+170,y,30,()->{step=Math.min(1024,step*2);changed();});
   button("Centrer",x,y+22,64,()->{if(minecraft.player!=null){cx=minecraft.player.getBlockX();cz=minecraft.player.getBlockZ();refresh();}});
   button("Vue globale",x+68,y+22,64,this::globalView);button("Retour",x+136,y+22,64,this::onClose);
+  button("Carte PNG",Math.max(4,width-84),2,80,()->{ProjectPackets.clearOverviewImage();ProjectPackets.request(new ProjectPackets.Action("project_overview_image",null,null,0,null,false));minecraft.setScreen(new OverviewImageScreen(this,true));});
  }
  @Override public void tick(){
   if(!dragging&&System.nanoTime()-lastRequest>(dirty?600000000L:2000000000L))refresh();
