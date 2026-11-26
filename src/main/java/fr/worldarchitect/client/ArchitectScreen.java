@@ -10,6 +10,14 @@ public final class ArchitectScreen extends Screen {
  private static final int BG=0xff1c201b,PANEL=0xff2c3427,ACCENT=0xffb6c69c,TEXT=0xffe9eadf;
  private boolean creating=false, backups=true, selecting=false, library=false;
  private java.util.UUID selected;
+ private boolean catalogOpen=false;
+ private String collection=null, newCollection="";
+ private int catalogPage=0;
+ private java.util.List<String> catalogRows(){
+  var r=ProjectPackets.catalog();if(r==null||!r.success())return java.util.List.of();
+  if(collection==null)return r.collections().stream().map(v->v.name()).toList();
+  return r.collections().stream().filter(v->v.name().equals(collection)).findFirst().map(v->v.maps().stream().map(m->m.name()+" | "+m.format()).toList()).orElse(java.util.List.of());
+ }
  private String notice="";
  private String librarySearch="";
  private int libraryPage=0, rotation=0;
@@ -41,7 +49,17 @@ public final class ArchitectScreen extends Screen {
  private void button(String label,int x,int y,int w,Runnable action){addRenderableWidget(Button.builder(Component.literal(label),b->action.run()).bounds(x,y,w,20).build());}
  @Override protected void init(){
   int w=Math.min(340,width-24),x=(width-w)/2,y=height/2-105;
-  if(library){
+  if(catalogOpen){
+   button("<",x+12,y+144,30,()->catalogPage=Math.max(0,catalogPage-1));
+   button(">",x+w-42,y+144,30,()->{if((catalogPage+1)*5<catalogRows().size())catalogPage++;});
+   button("Actualiser",x+48,y+144,w-96,ProjectPackets::refreshCatalog);
+   if(collection==null){
+    var field=new EditBox(font,x+12,y+168,(w-28)/2,20,Component.literal("Nouvelle collection"));
+    field.setMaxLength(80);field.setHint(Component.literal("Nom du dossier"));field.setValue(newCollection);field.setResponder(v->newCollection=v);addRenderableWidget(field);
+    button("Créer dossier",x+w/2+2,y+168,(w-28)/2,()->{if(!newCollection.isBlank())ProjectPackets.request(new ProjectPackets.Action("create_collection",newCollection,null,0,null,false));});
+   }
+   button("Retour",x+12,y+192,w-24,()->{if(collection!=null){collection=null;catalogPage=0;}else catalogOpen=false;rebuild();});
+  }else if(library){
    var search=new EditBox(font,x+12,y+30,w-24,20,Component.literal("Recherche"));
    search.setHint(Component.literal("Nom ou catégorie"));search.setValue(librarySearch);search.setResponder(v->{librarySearch=v;libraryPage=0;});addRenderableWidget(search);
    button("<",x+12,y+158,30,()->libraryPage=Math.max(0,libraryPage-1));
@@ -72,6 +90,7 @@ public final class ArchitectScreen extends Screen {
    button("Fermer",x+w/2+2,y+168,(w-28)/2,this::onClose);
    button("Sélection",x+12,y+192,(w-28)/2,()->{selecting=true;rebuild();});
    button("Bibliothèque",x+w/2+2,y+192,(w-28)/2,()->{library=true;libraryPage=0;rebuild();action("library");});
+   button("Collections de maps",x+12,y+216,w-24,()->{catalogOpen=true;collection=null;catalogPage=0;rebuild();ProjectPackets.refreshCatalog();});
    refresh();
   }else{
    nameBox=new EditBox(font,x+12,y+34,w-24,20,Component.literal("Nom du projet"));
@@ -94,8 +113,16 @@ public final class ArchitectScreen extends Screen {
   g.fill(0,0,width,height,BG);
   int w=Math.min(340,width-24),x=(width-w)/2,y=height/2-105;
   g.fill(x,y,x+w,y+240,PANEL);
-  g.drawCenteredString(font,library?"BIBLIOTHÈQUE":selecting?"SÉLECTION DE BÂTIMENT":creating?"NOUVEAU PROJET":"WORLD ARCHITECT",width/2,y+10,ACCENT);
-  if(library){
+  g.drawCenteredString(font,catalogOpen?(collection==null?"COLLECTIONS DE MAPS":font.plainSubstrByWidth(collection,w-24)):library?"BIBLIOTHÈQUE":selecting?"SÉLECTION DE BÂTIMENT":creating?"NOUVEAU PROJET":"WORLD ARCHITECT",width/2,y+10,ACCENT);
+  if(catalogOpen){
+   var rows=catalogRows();var response=ProjectPackets.catalog();
+   for(int i=catalogPage*5;i<Math.min(rows.size(),catalogPage*5+5);i++){
+    int yy=y+30+(i-catalogPage*5)*22;g.fill(x+12,yy,x+w-12,yy+20,BG);
+    g.drawString(font,font.plainSubstrByWidth(rows.get(i),w-36),x+18,yy+6,TEXT);
+   }
+   if(rows.isEmpty())g.drawCenteredString(font,response==null?"Chargement...":!response.success()?response.message():"Dossier vide",width/2,y+70,TEXT);
+   if(response!=null)g.drawCenteredString(font,font.plainSubstrByWidth(response.message(),w-24),width/2,y+220,response.success()?ACCENT:0xffdf8b80);
+  }else if(library){
    var entries=filtered();
    if(entries.isEmpty())g.drawCenteredString(font,"Aucun bâtiment correspondant",width/2,y+90,TEXT);
    for(int i=libraryPage*4;i<Math.min(entries.size(),libraryPage*4+4);i++){
@@ -127,10 +154,18 @@ public final class ArchitectScreen extends Screen {
   }else if(type==3)g.drawCenteredString(font,"Importation indisponible pour le moment",width/2,y+184,TEXT);
   else if(sizes[size]==-1)g.drawCenteredString(font,"Longueur X / Largeur Z : 16 à 60 000 blocs",width/2,y+184,TEXT);
   else g.drawCenteredString(font,"Création des paramètres uniquement",width/2,y+184,TEXT);
-  if(!creating&&!selecting&&!library&&!notice.isEmpty())g.drawCenteredString(font,font.plainSubstrByWidth(notice,w-24),width/2,y+222,0xffdfc17b);
+  if(!catalogOpen&&!creating&&!selecting&&!library&&!notice.isEmpty())g.drawCenteredString(font,font.plainSubstrByWidth(notice,w-24),width/2,y+222,0xffdfc17b);
   super.render(g,mx,my,delta);
  }
  @Override public boolean mouseClicked(double mx,double my,int button){
+  if(catalogOpen){
+   int w=Math.min(340,width-24),x=(width-w)/2,y=height/2-105;
+   if(button==0&&collection==null&&mx>=x+12&&mx<x+w-12&&my>=y+30&&my<y+140){
+    int i=catalogPage*5+(int)((my-y-30)/22);var rows=catalogRows();
+    if(i<rows.size()){collection=rows.get(i);catalogPage=0;rebuild();return true;}
+   }
+   return super.mouseClicked(mx,my,button);
+  }
   if(library&&button==0){
    int w=Math.min(340,width-24),x=(width-w)/2,y=height/2-105;
    if(mx>=x+12&&mx<x+w-12&&my>=y+54&&my<y+154){
