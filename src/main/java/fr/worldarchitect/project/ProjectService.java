@@ -66,7 +66,10 @@ public final class ProjectService {
   var location=net.minecraft.resources.ResourceLocation.parse(project.dimensionId());
   var destination=server.getWorldPath(LevelResource.ROOT).resolve("dimensions").resolve(location.getNamespace()).resolve(location.getPath());
   return java.util.concurrent.CompletableFuture.runAsync(()->{
-   try { MapTerrain.snapshot(source,destination); } catch(IOException e){throw new java.util.concurrent.CompletionException(e);}
+   try { MapTerrain.snapshot(source,destination);
+    var overview=source.resolve("overview.png");
+    if(java.nio.file.Files.isRegularFile(overview,java.nio.file.LinkOption.NOFOLLOW_LINKS)&&java.nio.file.Files.size(overview)<=5242880L)java.nio.file.Files.copy(overview,destination.resolve("overview.png"),java.nio.file.LinkOption.NOFOLLOW_LINKS);
+   } catch(IOException e){throw new java.util.concurrent.CompletionException(e);}
   }).thenCompose(ignored->server.submit(()->{
    if(REGISTRIES.get(server)!=registry)throw new IllegalStateException("Server registry changed");
    try { ProjectDatapack.stage(server,project);return registry.register(project); }
