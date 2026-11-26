@@ -15,6 +15,12 @@ public final class BlockEditScheduler {
     private BlockEditScheduler(){}
     private record Running(UUID owner, BlockEditJob job, java.nio.file.Path archive, BlockEditHistory.Entry replay, boolean reverse){}
     private static final Map<MinecraftServer,Map<ResourceKey<Level>,Running>> JOBS=new IdentityHashMap<>();
+    private static void requireCleanJournal(java.nio.file.Path dir) throws java.io.IOException {
+        if(!java.nio.file.Files.exists(dir))return;
+        try(var pending=java.nio.file.Files.newDirectoryStream(dir,"*.pending.nbt")){
+            if(pending.iterator().hasNext())throw new java.io.IOException("Unfinished construction journal: recovery required before further edits");
+        }
+    }
     public static void submit(ServerPlayer player,StructureSelection.Selection selection,EditGeometry.Shape shape,
             net.minecraft.world.level.block.state.BlockState target,net.minecraft.world.level.block.Block filter) throws java.io.IOException {
         ConstructionSessions.requireEditor(player);
@@ -27,6 +33,7 @@ public final class BlockEditScheduler {
         var project=ConstructionSessions.requireEditor(player);
         var archive=server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT)
             .resolve("worldarchitect/block-edits").resolve(project.id().toString()).resolve(UUID.randomUUID()+".pending.nbt");
+        requireCleanJournal(archive.getParent());
         BlockEditArchive.save(archive,player.serverLevel(),player.getUUID(),changes);
         jobs.put(dimension,new Running(player.getUUID(),new BlockEditJob(player.serverLevel(),changes),archive,null,false));
     }
@@ -38,6 +45,7 @@ public final class BlockEditScheduler {
         if(jobs.containsKey(level.dimension()))throw new IllegalStateException("Construction operation already running");
         var dir=server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT)
             .resolve("worldarchitect/block-edits").resolve(project.id().toString());
+        requireCleanJournal(dir);
         var history=BlockEditHistory.load(dir.resolve("history.json"));
         var entry=history.peek(reverse,player.getUUID());
         if(entry==null)return false;
