@@ -190,6 +190,9 @@ public final class ProjectPackets {
     else if("block_undo".equals(a.action())||"block_redo".equals(a.action())){
      message=fr.worldarchitect.project.BlockEditScheduler.replay(player,"block_undo".equals(a.action()))?"Opération demandée":"Aucune modification disponible";
     }
+    else if("block_recover".equals(a.action())){
+     message=fr.worldarchitect.project.BlockEditScheduler.recover(player)?"Restauration demandée ; journal conservé":"Aucune construction interrompue";
+    }
     else if("block_cancel".equals(a.action())){
      message=fr.worldarchitect.project.BlockEditScheduler.cancel(player)?"Annulation demandée":"Aucune opération active";
     }
