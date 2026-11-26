@@ -17,6 +17,15 @@ public final class AerialScreen extends Screen {
  private void changed(){dirty=true;}
  public AerialScreen(Screen parent){super(Component.literal("Carte aérienne"));this.parent=parent;}
  private void refresh(){dirty=false;lastRequest=System.nanoTime();ProjectPackets.requestAerial(cx,cz,step);}
+ private void globalView(){
+  var r=ProjectPackets.aerial();
+  if(r==null||r.tile()==null||minecraft.level==null)return;
+  var t=r.tile();
+  if(!t.dimension().equals(minecraft.level.dimension().location().toString())||t.length()<=0||t.width()<=0)return;
+  cx=0;cz=0;step=1;
+  while(step<1024&&64L*step<Math.max(t.length(),t.width())+4L)step*=2;
+  changed();
+ }
  private void move(int dx,int dz){cx+=dx*step*16;cz+=dz*step*16;changed();}
  private void button(String label,int x,int y,int w,Runnable run){addRenderableWidget(Button.builder(Component.literal(label),b->run.run()).bounds(x,y,w,20).build());}
  @Override protected void init(){
@@ -27,7 +36,7 @@ public final class AerialScreen extends Screen {
   button("+",x+136,y,30,()->{step=Math.max(1,step/2);changed();});
   button("-",x+170,y,30,()->{step=Math.min(1024,step*2);changed();});
   button("Centrer",x,y+22,64,()->{if(minecraft.player!=null){cx=minecraft.player.getBlockX();cz=minecraft.player.getBlockZ();refresh();}});
-  button("Actualiser",x+68,y+22,64,this::refresh);button("Retour",x+136,y+22,64,this::onClose);
+  button("Vue globale",x+68,y+22,64,this::globalView);button("Retour",x+136,y+22,64,this::onClose);
  }
  @Override public void tick(){
   if(!dragging&&System.nanoTime()-lastRequest>(dirty?600000000L:2000000000L))refresh();
