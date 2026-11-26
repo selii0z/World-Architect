@@ -8,9 +8,11 @@ final class BackupRestore {
  // Extract only into a new isolated directory; never overwrite a running world.
  static Path stage(Path archive,Path stagingRoot,long maxBytes) throws IOException {
   if(maxBytes<=0)throw new IllegalArgumentException("Invalid extraction limit");
+  if(Files.isSymbolicLink(stagingRoot)||!Files.isRegularFile(archive,LinkOption.NOFOLLOW_LINKS))throw new IOException("Invalid restore source or staging directory");
   Files.createDirectories(stagingRoot);
   Path root=Files.createTempDirectory(stagingRoot,"restore-").toAbsolutePath().normalize();
   long total=0;int count=0;
+  var seen=new java.util.HashSet<Path>();
   try(var zip=new ZipInputStream(Files.newInputStream(archive))){
    for(var entry=zip.getNextEntry();entry!=null;entry=zip.getNextEntry()){
     if(++count>100000)throw new IOException("Too many archive entries");
@@ -18,7 +20,11 @@ final class BackupRestore {
     if(name.isBlank()||name.startsWith("/")||name.contains("\\")||name.contains(":"))throw new IOException("Invalid archive path");
     Path target=root.resolve(name).normalize();
     if(!target.startsWith(root)||target.equals(root))throw new IOException("Archive path escapes staging");
-    if(entry.isDirectory())Files.createDirectories(target);
+    if(!seen.add(target))throw new IOException("Duplicate archive entry");
+    if(entry.isDirectory()){
+     if(zip.read()!=-1)throw new IOException("Unexpected directory payload");
+     Files.createDirectories(target);
+    }
     else{
      Files.createDirectories(target.getParent());
      try(var out=Files.newOutputStream(target,StandardOpenOption.CREATE_NEW)){
