@@ -10,22 +10,27 @@ public final class AerialScreen extends Screen {
  private int cx,cz,step=4;
  private boolean initialized;
  private long lastRequest;
+ private boolean dirty,dragging;
+ private double dragX,dragZ;
+ private int pixelSize(){return Math.max(1,Math.min((width-20)/64,(height-82)/64));}
+ private boolean overMap(double x,double y){int size=pixelSize()*64;return x>=(width-size)/2&&x<(width+size)/2&&y>=24&&y<24+size;}
+ private void changed(){dirty=true;}
  public AerialScreen(Screen parent){super(Component.literal("Carte aérienne"));this.parent=parent;}
- private void refresh(){lastRequest=System.nanoTime();ProjectPackets.requestAerial(cx,cz,step);}
- private void move(int dx,int dz){cx+=dx*step*16;cz+=dz*step*16;refresh();}
+ private void refresh(){dirty=false;lastRequest=System.nanoTime();ProjectPackets.requestAerial(cx,cz,step);}
+ private void move(int dx,int dz){cx+=dx*step*16;cz+=dz*step*16;changed();}
  private void button(String label,int x,int y,int w,Runnable run){addRenderableWidget(Button.builder(Component.literal(label),b->run.run()).bounds(x,y,w,20).build());}
  @Override protected void init(){
   if(!initialized&&minecraft.player!=null){cx=minecraft.player.getBlockX();cz=minecraft.player.getBlockZ();initialized=true;ProjectPackets.refreshMarkers();refresh();}
   int x=width/2-100,y=height-48;
   button("<",x,y,30,()->move(-1,0));button(">",x+34,y,30,()->move(1,0));
   button("N",x+68,y,30,()->move(0,-1));button("S",x+102,y,30,()->move(0,1));
-  button("+",x+136,y,30,()->{step=Math.max(1,step/2);refresh();});
-  button("-",x+170,y,30,()->{step=Math.min(16,step*2);refresh();});
+  button("+",x+136,y,30,()->{step=Math.max(1,step/2);changed();});
+  button("-",x+170,y,30,()->{step=Math.min(16,step*2);changed();});
   button("Centrer",x,y+22,64,()->{if(minecraft.player!=null){cx=minecraft.player.getBlockX();cz=minecraft.player.getBlockZ();refresh();}});
   button("Actualiser",x+68,y+22,64,this::refresh);button("Retour",x+136,y+22,64,this::onClose);
  }
  @Override public void tick(){
-  if(System.nanoTime()-lastRequest>2000000000L)refresh();
+  if(!dragging&&System.nanoTime()-lastRequest>(dirty?600000000L:2000000000L))refresh();
  }
  @Override public void render(GuiGraphics g,int mx,int my,float delta){
   g.fill(0,0,width,height,0xff1c201b);
@@ -52,6 +57,20 @@ public final class AerialScreen extends Screen {
   }
   g.drawCenteredString(font,"X: "+cx+"  Z: "+cz,width/2,height-60,0xffe9eadf);
   super.render(g,mx,my,delta);
+ }
+ @Override public boolean mouseScrolled(double x,double y,double horizontal,double vertical){
+  if(!overMap(x,y)||vertical==0)return super.mouseScrolled(x,y,horizontal,vertical);
+  int old=step;step=vertical>0?Math.max(1,step/2):Math.min(16,step*2);
+  int pixel=pixelSize();cx+=(int)Math.round((x-width/2.0)/pixel*(old-step));cz+=(int)Math.round((y-24-32*pixel)/pixel*(old-step));changed();return true;
+ }
+ @Override public boolean mouseClicked(double x,double y,int button){
+  if(button==0&&overMap(x,y)){dragging=true;dragX=0;dragZ=0;return true;}return super.mouseClicked(x,y,button);
+ }
+ @Override public boolean mouseDragged(double x,double y,int button,double dx,double dy){
+  if(dragging&&button==0){dragX-=dx*step/pixelSize();dragZ-=dy*step/pixelSize();int ix=(int)dragX,iz=(int)dragZ;cx+=ix;cz+=iz;dragX-=ix;dragZ-=iz;changed();return true;}return super.mouseDragged(x,y,button,dx,dy);
+ }
+ @Override public boolean mouseReleased(double x,double y,int button){
+  if(dragging&&button==0){dragging=false;changed();return true;}return super.mouseReleased(x,y,button);
  }
  @Override public void onClose(){minecraft.setScreen(parent);}
  @Override public boolean isPauseScreen(){return false;}
