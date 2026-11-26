@@ -7,11 +7,11 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 public final class OverviewImageScreen extends Screen{
- private final Screen parent;private final boolean activeProject;private ResourceLocation texture;private int iw,ih;private double zoom=1,dx,dz;private boolean attempted;private fr.worldarchitect.project.ProjectMarkers.Marker moving;private int originX,originZ,step;private String error="";
+ private final Screen parent;private final boolean activeProject;private ResourceLocation texture;private int iw,ih;private double zoom=1,dx,dz;private boolean attempted;private int waitingTicks;private fr.worldarchitect.project.ProjectMarkers.Marker moving;private int originX,originZ,step;private String error="";
  public OverviewImageScreen(Screen parent){this(parent,false);}
  public OverviewImageScreen(Screen parent,boolean activeProject){super(Component.literal("Carte aérienne"));this.parent=parent;this.activeProject=activeProject;if(activeProject)ProjectPackets.refreshMarkers();}
  @Override public void tick(){
-  if(attempted)return;byte[] bytes=ProjectPackets.overviewImage();if(bytes==null)return;attempted=true;
+  if(attempted)return;byte[] bytes=ProjectPackets.overviewImage();if(bytes==null){if(++waitingTicks>=200){attempted=true;error="Le serveur ne répond pas — Échap pour revenir";}return;}attempted=true;
   if(bytes.length==0){error="Carte absente ou trop volumineuse";return;}
   try{
    if(bytes.length<24)throw new IllegalArgumentException();
@@ -81,7 +81,7 @@ public final class OverviewImageScreen extends Screen{
    if(button==1){moving=null;return true;}
    if(button==0){var marker=moving; minecraft.setScreen(new net.minecraft.client.gui.screens.ConfirmScreen(ok->{if(ok){ProjectPackets.request(new ProjectPackets.Action("marker_move",marker.id().toString(),null,0,bx+","+bz,false));moving=null;}minecraft.setScreen(this);},Component.literal("Déplacer "+marker.name()),Component.literal("X: "+bx+" Z: "+bz+" ?")));return true;}
   }
-  if(button!=1)return super.mouseClicked(x,y,button);
+  if(button!=1)return button==0||super.mouseClicked(x,y,button);
   var markers=ProjectPackets.markers();
   if(markers!=null&&markers.success()&&minecraft.level.dimension().location().toString().equals(markers.dimension())){
    for(var m:markers.markers()){
@@ -93,7 +93,8 @@ public final class OverviewImageScreen extends Screen{
  }
  @Override public boolean mouseScrolled(double x,double y,double horizontal,double vertical){zoom=Math.max(0.25,Math.min(16,zoom*Math.pow(1.2,vertical)));return true;}
  @Override public boolean mouseDragged(double x,double y,int button,double deltaX,double deltaY){if(button==0){dx+=deltaX;dz+=deltaY;return true;}return false;}
- @Override protected void init(){if(texture==null&&attempted){attempted=false;if(activeProject){ProjectPackets.clearOverviewImage();ProjectPackets.request(new ProjectPackets.Action("project_overview_image",null,null,0,null,false));}}if(activeProject)ProjectPackets.refreshMarkers();}
+ @Override protected void init(){if(texture==null&&attempted){attempted=false;waitingTicks=0;error="";if(activeProject){ProjectPackets.clearOverviewImage();ProjectPackets.request(new ProjectPackets.Action("project_overview_image",null,null,0,null,false));}}if(activeProject)ProjectPackets.refreshMarkers();}
  @Override public void removed(){if(texture!=null){minecraft.getTextureManager().release(texture);texture=null;}ProjectPackets.clearOverviewImage();}
+ @Override public boolean isPauseScreen(){return false;}
  @Override public void onClose(){minecraft.setScreen(parent);}
 }
