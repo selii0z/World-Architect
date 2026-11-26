@@ -13,17 +13,22 @@ import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 @EventBusSubscriber(modid="worldarchitect")
 public final class BlockEditScheduler {
     private BlockEditScheduler(){}
-    private record Running(UUID owner, BlockEditJob job){}
+    private record Running(UUID owner, BlockEditJob job, java.nio.file.Path archive){}
     private static final Map<MinecraftServer,Map<ResourceKey<Level>,Running>> JOBS=new IdentityHashMap<>();
     public static void submit(ServerPlayer player,StructureSelection.Selection selection,EditGeometry.Shape shape,
-            net.minecraft.world.level.block.state.BlockState target,net.minecraft.world.level.block.Block filter){
+            net.minecraft.world.level.block.state.BlockState target,net.minecraft.world.level.block.Block filter) throws java.io.IOException {
         ConstructionSessions.requireEditor(player);
         var server=player.getServer();
         var dimension=player.serverLevel().dimension();
-        var jobs=JOBS.computeIfAbsent(server,s->new HashMap<>());
+        var jobs=JOBS.computeIfAbsent(server,s->new LinkedHashMap<>());
         if(jobs.containsKey(dimension))throw new IllegalStateException("Construction operation already running");
         var changes=BlockEditPlan.prepare(player,selection,shape,target,filter);
-        jobs.put(dimension,new Running(player.getUUID(),new BlockEditJob(player.serverLevel(),changes)));
+        if(changes.isEmpty())return;
+        var project=ConstructionSessions.requireEditor(player);
+        var archive=server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT)
+            .resolve("worldarchitect/block-edits").resolve(project.id().toString()).resolve(UUID.randomUUID()+".pending.nbt");
+        BlockEditArchive.save(archive,player.serverLevel(),player.getUUID(),changes);
+        jobs.put(dimension,new Running(player.getUUID(),new BlockEditJob(player.serverLevel(),changes),archive));
     }
     public static boolean cancel(ServerPlayer player){
         if(!player.getServer().isSameThread())throw new IllegalStateException("Server thread required");
@@ -36,19 +41,27 @@ public final class BlockEditScheduler {
     @SubscribeEvent public static void tick(ServerTickEvent.Post event){
         var jobs=JOBS.get(event.getServer());
         if(jobs==null)return;
-        var iterator=jobs.values().iterator();
+        var iterator=jobs.entrySet().iterator();
         if(!iterator.hasNext())return;
         // Rotate the queue so all dimensions share the same server-wide budget.
-        var entry=iterator.next();
+        var selected=iterator.next();
+        var dimension=selected.getKey();
+        var entry=selected.getValue();
         var job=entry.job();
         job.tick(512);
         switch(job.state()){
             case COMPLETE,CANCELLED,FAILED -> {
                 iterator.remove();
+                try{
+                    if(job.state()==BlockEditJob.State.COMPLETE){
+                        var destination=entry.archive().resolveSibling(entry.archive().getFileName().toString().replace(".pending.nbt",".complete.nbt"));
+                        java.nio.file.Files.move(entry.archive(),destination,java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+                    }else if(!job.rollbackConflict())java.nio.file.Files.deleteIfExists(entry.archive());
+                }catch(java.io.IOException ex){com.mojang.logging.LogUtils.getLogger().error("Cannot finalize block edit archive",ex);}
                 var player=event.getServer().getPlayerList().getPlayer(entry.owner());
                 if(player!=null)player.sendSystemMessage(net.minecraft.network.chat.Component.literal("World Architect: "+job.state()+" ("+job.applied()+"/"+job.total()+")"+(job.rollbackConflict()?" - restauration incomplète":"")));
             }
-            default -> {}
+            default -> {iterator.remove();jobs.put(dimension,entry);}
         }
     }
     @SubscribeEvent public static void stopping(ServerStoppingEvent event){
