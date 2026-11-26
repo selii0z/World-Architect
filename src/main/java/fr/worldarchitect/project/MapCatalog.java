@@ -53,6 +53,13 @@ public final class MapCatalog {
         Files.writeString(folder.resolve("project.json"), new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(project), StandardOpenOption.CREATE_NEW);
     }
 
+    public static Path resolveTerrain(String collection,String name) throws IOException {
+        Path parent=child(root(),collection);
+        Path source=child(parent,name);
+        if(!directory(parent)||!directory(source)||!directory(source.resolve("region"))||Files.exists(source.resolve("session.lock"),LinkOption.NOFOLLOW_LINKS)) throw new IOException("Offline terrain folder required");
+        return source;
+    }
+
     public static Path importSource(String collection, String sourceName, String destinationName) throws IOException {
         Path parent = child(root(), collection);
         if (!directory(parent)) throw new IOException("Unknown collection");
