@@ -13,6 +13,11 @@ public final class ArchitectScreen extends Screen {
  private boolean catalogOpen=false;
  private String collection=null, newCollection="", targetCollection=null;
  private int catalogPage=0;
+ private String importSource=null, importName="";
+ private java.util.List<fr.worldarchitect.project.MapCatalog.Entry> mapEntries(){
+  var r=ProjectPackets.catalog();if(r==null||!r.success()||collection==null)return java.util.List.of();
+  return r.collections().stream().filter(v->v.name().equals(collection)).findFirst().map(v->v.maps()).orElse(java.util.List.of());
+ }
  private java.util.List<String> catalogRows(){
   var r=ProjectPackets.catalog();if(r==null||!r.success())return java.util.List.of();
   if(collection==null)return r.collections().stream().map(v->v.name()).toList();
@@ -57,10 +62,14 @@ public final class ArchitectScreen extends Screen {
     var field=new EditBox(font,x+12,y+168,(w-28)/2,20,Component.literal("Nouvelle collection"));
     field.setMaxLength(80);field.setHint(Component.literal("Nom du dossier"));field.setValue(newCollection);field.setResponder(v->newCollection=v);addRenderableWidget(field);
     button("Créer dossier",x+w/2+2,y+168,(w-28)/2,()->{if(!newCollection.isBlank())ProjectPackets.request(new ProjectPackets.Action("create_collection",newCollection,null,0,null,false));});
+   }else if(importSource!=null){
+    var field=new EditBox(font,x+12,y+168,(w-28)/2,20,Component.literal("Nom de destination"));
+    field.setMaxLength(80);field.setValue(importName);field.setResponder(v->importName=v);addRenderableWidget(field);
+    button("Importer",x+w/2+2,y+168,(w-28)/2,()->{if(!importName.isBlank()){ProjectPackets.request(new ProjectPackets.Action("import_map",collection,null,0,importSource+"|"+importName,false));importSource=null;catalogPage=0;rebuild();}});
    }else{
     button("+ Créer une map",x+12,y+168,w-24,()->{targetCollection=collection;catalogOpen=false;creating=true;rebuild();});
    }
-   button("Retour",x+12,y+192,w-24,()->{if(collection!=null){collection=null;catalogPage=0;}else catalogOpen=false;rebuild();});
+   button("Retour",x+12,y+192,w-24,()->{if(importSource!=null){importSource=null;}else if(collection!=null){collection=null;catalogPage=0;}else catalogOpen=false;rebuild();});
   }else if(library){
    var search=new EditBox(font,x+12,y+30,w-24,20,Component.literal("Recherche"));
    search.setHint(Component.literal("Nom ou catégorie"));search.setValue(librarySearch);search.setResponder(v->{librarySearch=v;libraryPage=0;});addRenderableWidget(search);
@@ -92,7 +101,7 @@ public final class ArchitectScreen extends Screen {
    button("Fermer",x+w/2+2,y+168,(w-28)/2,this::onClose);
    button("Sélection",x+12,y+192,(w-28)/2,()->{selecting=true;rebuild();});
    button("Bibliothèque",x+w/2+2,y+192,(w-28)/2,()->{library=true;libraryPage=0;rebuild();action("library");});
-   button("Collections de maps",x+12,y+216,w-24,()->{catalogOpen=true;collection=null;catalogPage=0;rebuild();ProjectPackets.refreshCatalog();});
+   button("Collections de maps",x+12,y+216,w-24,()->{catalogOpen=true;collection=null;importSource=null;catalogPage=0;rebuild();ProjectPackets.refreshCatalog();});
    refresh();
   }else{
    nameBox=new EditBox(font,x+12,y+34,w-24,20,Component.literal("Nom du projet"));
@@ -119,7 +128,7 @@ public final class ArchitectScreen extends Screen {
   if(catalogOpen){
    var rows=catalogRows();var response=ProjectPackets.catalog();
    for(int i=catalogPage*5;i<Math.min(rows.size(),catalogPage*5+5);i++){
-    int yy=y+30+(i-catalogPage*5)*22;g.fill(x+12,yy,x+w-12,yy+20,BG);
+    int yy=y+30+(i-catalogPage*5)*22;g.fill(x+12,yy,x+w-12,yy+20,collection!=null&&i<mapEntries().size()&&mapEntries().get(i).name().equals(importSource)?0xff4c6039:BG);
     g.drawString(font,font.plainSubstrByWidth(rows.get(i),w-36),x+18,yy+6,TEXT);
    }
    if(rows.isEmpty())g.drawCenteredString(font,response==null?"Chargement...":!response.success()?response.message():"Dossier vide",width/2,y+70,TEXT);
@@ -162,9 +171,13 @@ public final class ArchitectScreen extends Screen {
  @Override public boolean mouseClicked(double mx,double my,int button){
   if(catalogOpen){
    int w=Math.min(340,width-24),x=(width-w)/2,y=height/2-105;
-   if(button==0&&collection==null&&mx>=x+12&&mx<x+w-12&&my>=y+30&&my<y+140){
+   if(button==0&&mx>=x+12&&mx<x+w-12&&my>=y+30&&my<y+140){
     int i=catalogPage*5+(int)((my-y-30)/22);var rows=catalogRows();
-    if(i<rows.size()){collection=rows.get(i);catalogPage=0;rebuild();return true;}
+    if(i<rows.size()){
+     if(collection==null){collection=rows.get(i);catalogPage=0;importSource=null;rebuild();return true;}
+     var entry=mapEntries().get(i);var format=entry.format();
+     if(format==fr.worldarchitect.project.MapCatalog.Format.ZIP||format==fr.worldarchitect.project.MapCatalog.Format.WORLD||format==fr.worldarchitect.project.MapCatalog.Format.REGION){importSource=entry.name();importName=entry.name().replaceFirst("(?i)\\.zip$","");if(importName.equals(entry.name()))importName+="-copie";rebuild();return true;}
+    }
    }
    return super.mouseClicked(mx,my,button);
   }
