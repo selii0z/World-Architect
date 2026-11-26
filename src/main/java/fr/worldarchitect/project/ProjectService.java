@@ -58,13 +58,20 @@ public final class ProjectService {
   return ProjectWorlds.resolve(player, requireProject(player,id)).isPresent();
  }
  public static List<Project> list(ServerPlayer player) { return authorized(player).list(); }
- public static Project activateImported(ServerPlayer player,String collection,String name) throws IOException {
+ public static java.util.concurrent.CompletableFuture<Project> activateImported(ServerPlayer player,String collection,String name) throws IOException {
   var registry=authorized(player);
   var source=MapCatalog.resolveTerrain(collection,name);
   var project=new Project(java.util.UUID.randomUUID(),name,Project.WorldType.IMPORTED,0,"worldarchitect:generic",true,0);
-  ImportedTerrain.prepare(player.getServer(),project,source);
-  ProjectDatapack.stage(player.getServer(),project);
-  return registry.register(project);
+  var server=player.getServer();
+  var location=net.minecraft.resources.ResourceLocation.parse(project.dimensionId());
+  var destination=server.getWorldPath(LevelResource.ROOT).resolve("dimensions").resolve(location.getNamespace()).resolve(location.getPath());
+  return java.util.concurrent.CompletableFuture.runAsync(()->{
+   try { MapTerrain.snapshot(source,destination); } catch(IOException e){throw new java.util.concurrent.CompletionException(e);}
+  }).thenCompose(ignored->server.submit(()->{
+   if(REGISTRIES.get(server)!=registry)throw new IllegalStateException("Server registry changed");
+   try { ProjectDatapack.stage(server,project);return registry.register(project); }
+   catch(IOException e){throw new java.util.concurrent.CompletionException(e);}
+  }));
  }
  public static Project create(ServerPlayer player, String name, Project.WorldType type, int size, String profile, boolean backups) throws IOException {return create(player,name,type,size,size,profile,backups);}
  public static Project create(ServerPlayer player,String name,Project.WorldType type,int size,int width,String profile,boolean backups) throws IOException {
