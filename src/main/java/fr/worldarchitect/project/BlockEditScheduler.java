@@ -73,6 +73,15 @@ public final class BlockEditScheduler {
         var entry=selected.getValue();
         var job=entry.job();
         job.tick(512);
+        var viewer=event.getServer().getPlayerList().getPlayer(entry.owner());
+        if(viewer!=null){
+            int total=job.total();
+            int percent=total==0?100:(int)(100L*job.applied()/total);
+            String phase=job.state()==BlockEditJob.State.ROLLING_BACK?"Restauration":"Construction";
+            int filled=Math.max(0,Math.min(20,percent/5));
+            String bar="§a"+"|".repeat(filled)+"§7"+"|".repeat(20-filled)+"§r";
+            viewer.displayClientMessage(net.minecraft.network.chat.Component.literal(phase+"  "+bar+"  "+percent+"%  ("+job.applied()+"/"+total+")"),true);
+        }
         switch(job.state()){
             case COMPLETE,CANCELLED,FAILED -> {
                 iterator.remove();
