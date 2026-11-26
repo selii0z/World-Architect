@@ -11,7 +11,7 @@ public final class BlockEditPlan {
     private BlockEditPlan() {}
     public record Change(BlockPos position, BlockState before, BlockState after) {}
     public static List<Change> prepare(ServerPlayer player, StructureSelection.Selection selection,
-            EditGeometry.Shape shape, BlockState target, Block filter) {
+            EditGeometry.Shape shape, BlockState target, Block filter) throws java.io.IOException {
         var project=ConstructionSessions.requireEditor(player);
         var level=player.serverLevel();
         if(!selection.dimension().equals(level.dimension()))throw new IllegalArgumentException("Wrong dimension");
