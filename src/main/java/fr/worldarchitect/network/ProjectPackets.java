@@ -187,6 +187,10 @@ public final class ProjectPackets {
      SELECTIONS.clear(player.getUUID());
      message="Sélection effacée";
     }
+    else if("activate_map".equals(a.action())) {
+     var project=ProjectService.activateImported(player,a.profile(),a.name());
+     message="Map préparée : "+project.name()+" ; redémarrage nécessaire";
+    }
     else if("create_catalog_project".equals(a.action())) {
      var folder=fr.worldarchitect.project.MapCatalog.reserveMap(a.profile(),a.name());
      var project=ProjectService.create(player,a.name(),a.worldType(),a.size(),a.width(),"worldarchitect:generic",a.automaticBackups());
