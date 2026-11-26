@@ -188,8 +188,24 @@ public final class ProjectPackets {
      message="Sélection effacée";
     }
     else if("activate_map".equals(a.action())) {
-     var project=ProjectService.activateImported(player,a.profile(),a.name());
-     message="Map préparée : "+project.name()+" ; redémarrage nécessaire";
+     if(!IMPORTING.compareAndSet(false,true))throw new IllegalStateException("Terrain operation in progress");
+     var server=player.getServer();var playerId=player.getUUID();
+     try{
+      ProjectService.activateImported(player,a.profile(),a.name()).whenComplete((project,error)->{
+       IMPORTING.set(false);
+       server.execute(()->{
+        var online=server.getPlayerList().getPlayer(playerId);
+        if(error!=null)com.mojang.logging.LogUtils.getLogger().warn("Map activation failed",error);
+        if(online!=null){
+         var projects=ProjectService.list(online);
+         var ready=new java.util.HashSet<java.util.UUID>();
+         for(var p:projects)if(ProjectService.isReady(online,p.id()))ready.add(p.id());
+         PacketDistributor.sendToPlayer(online,new Reply(GSON.toJson(new Result(error==null,error==null?"Map préparée ; redémarrage nécessaire":"Échec de l’activation",projects,ready))));
+        }
+       });
+      });
+     }catch(Exception ex){IMPORTING.set(false);throw ex;}
+     return;
     }
     else if("create_catalog_project".equals(a.action())) {
      var folder=fr.worldarchitect.project.MapCatalog.reserveMap(a.profile(),a.name());
