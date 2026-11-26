@@ -8,7 +8,7 @@ import net.minecraft.world.level.levelgen.Heightmap;
 public final class AerialMap {
  private AerialMap(){}
  private record Key(java.nio.file.Path root,java.util.UUID project,int x,int z,int step){}
- private static final java.util.concurrent.ThreadPoolExecutor IO=new java.util.concurrent.ThreadPoolExecutor(1,1,30,java.util.concurrent.TimeUnit.SECONDS,new java.util.concurrent.ArrayBlockingQueue<>(64),new java.util.concurrent.ThreadPoolExecutor.DiscardPolicy());
+ private static final java.util.concurrent.ThreadPoolExecutor IO=new java.util.concurrent.ThreadPoolExecutor(1,1,30,java.util.concurrent.TimeUnit.SECONDS,new java.util.concurrent.ArrayBlockingQueue<>(64),task->{var thread=new Thread(task,"worldarchitect-aerial-cache");thread.setDaemon(true);return thread;},new java.util.concurrent.ThreadPoolExecutor.AbortPolicy());
  private static final java.util.Map<Key,int[]> CACHE=new java.util.LinkedHashMap<>(128,0.75f,true){
   protected boolean removeEldestEntry(java.util.Map.Entry<Key,int[]> e){return size()>128;}
  };
@@ -16,16 +16,16 @@ public final class AerialMap {
  private static synchronized int[] cached(Key key){
   int[] data=CACHE.get(key);
   if(data!=null)return data;
-  if(IO.getQueue().remainingCapacity()>0&&LOADING.add(key))IO.execute(()->{
+  if(IO.getQueue().remainingCapacity()>0&&LOADING.add(key))try{IO.execute(()->{
    try{int[] read=AerialCache.read(key.root(),key.project(),key.x(),key.z(),key.step());synchronized(AerialMap.class){CACHE.putIfAbsent(key,read);}}
    catch(IOException ex){synchronized(AerialMap.class){CACHE.putIfAbsent(key,new int[4096]);}}
    finally{synchronized(AerialMap.class){LOADING.remove(key);}}
-  });
+  });}catch(java.util.concurrent.RejectedExecutionException ex){LOADING.remove(key);}
   return null;
  }
  private static synchronized void persist(Key key,int[] data){
   CACHE.put(key,data);
-  if(IO.getQueue().remainingCapacity()>0)IO.execute(()->{try{AerialCache.write(key.root(),key.project(),key.x(),key.z(),key.step(),data);}catch(IOException ex){org.slf4j.LoggerFactory.getLogger(AerialMap.class).warn("Cannot save aerial cache",ex);}});
+  try{IO.execute(()->{try{AerialCache.write(key.root(),key.project(),key.x(),key.z(),key.step(),data);}catch(IOException ex){org.slf4j.LoggerFactory.getLogger(AerialMap.class).warn("Cannot save aerial cache",ex);}});}catch(java.util.concurrent.RejectedExecutionException ex){org.slf4j.LoggerFactory.getLogger(AerialMap.class).warn("Aerial cache queue full; tile retained in memory");}
  }
  public static final int SIZE=64;
  public record Tile(String dimension,int originX,int originZ,int step,int size,int[] colors,int length,int width){}
