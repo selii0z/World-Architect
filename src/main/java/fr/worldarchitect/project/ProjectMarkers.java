@@ -64,6 +64,19 @@ public final class ProjectMarkers {
   if(!level.getBlockState(pos).getCollisionShape(level,pos).isEmpty()||!level.getBlockState(pos.above()).getCollisionShape(level,pos.above()).isEmpty()||!level.getFluidState(pos).isEmpty()||!level.getFluidState(pos.above()).isEmpty())throw new IOException("Marker obstructed");
   player.teleportTo(level,marker.x()+0.5,marker.y(),marker.z()+0.5,player.getYRot(),player.getXRot());
  }
+ public static void teleportSurface(ServerPlayer player,int x,int z)throws IOException{
+  var project=ConstructionSessions.requireEditor(player);
+  BlockEditScheduler.requireIdle(player,project);
+  var level=player.serverLevel();
+  if(Math.abs((long)x)>29999984||Math.abs((long)z)>29999984||!project.bounds().contains(x+0.5,z+0.5))throw new IOException("Outside project");
+  var chunk=level.getChunkSource().getChunkNow(x>>4,z>>4);
+  if(chunk==null)throw new IOException("Terrain not loaded");
+  int y=chunk.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,x&15,z&15)+1;
+  var pos=new net.minecraft.core.BlockPos(x,y,z);
+  if(y<=level.getMinBuildHeight()||y>=level.getMaxBuildHeight()-1||!level.getWorldBorder().isWithinBounds(pos))throw new IOException("Invalid surface");
+  if(!level.getBlockState(pos.below()).isFaceSturdy(level,pos.below(),net.minecraft.core.Direction.UP)||!level.getFluidState(pos.below()).isEmpty()||!level.getFluidState(pos).isEmpty()||!level.getFluidState(pos.above()).isEmpty()||!level.noCollision(player,player.getBoundingBox().move(x+0.5-player.getX(),y-player.getY(),z+0.5-player.getZ())))throw new IOException("Unsafe surface");
+  player.teleportTo(level,x+0.5,y,z+0.5,player.getYRot(),player.getXRot());
+ }
  public static Marker update(ServerPlayer player,UUID id,String name,Category category,Color color)throws IOException{
   var project=ConstructionSessions.requireEditor(player);
   name=name.strip();
