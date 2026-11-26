@@ -73,7 +73,7 @@ public final class StructureLibrary {
   if(!level.getServer().isSameThread())throw new IllegalStateException("Server thread required");
   if(name==null||name.isBlank()||name.length()>80||category==null||category.isBlank()||category.length()>60)throw new IllegalArgumentException("Invalid metadata");
   if(!Files.isRegularFile(source,LinkOption.NOFOLLOW_LINKS))throw new IOException("Invalid schematic source");
-  CompoundTag data=SpongeSchematic.read(source);
+  CompoundTag data=source.getFileName().toString().toLowerCase(java.util.Locale.ROOT).endsWith(".litematic")?LitematicReader.read(source):SpongeSchematic.read(source);
   var lookup=level.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.BLOCK);
   var palette=data.getList("palette",10);
   for(int i=0;i<palette.size();i++){
