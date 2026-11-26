@@ -116,7 +116,7 @@ public final class ProjectPackets {
      String dimension=player.serverLevel().dimension().location().toString();
      try{
       String status="Marqueurs actualisés";
-      if("marker_add".equals(a.action())){fr.worldarchitect.project.ProjectMarkers.add(player,a.name());status="Marqueur ajouté";}
+      if("marker_add".equals(a.action())){var options=a.profile()==null?new String[]{"GENERAL","WHITE"}:a.profile().split(",",-1);if(options.length!=2)throw new IllegalArgumentException("Invalid marker options");fr.worldarchitect.project.ProjectMarkers.add(player,a.name(),fr.worldarchitect.project.ProjectMarkers.Category.valueOf(options[0]),fr.worldarchitect.project.ProjectMarkers.Color.valueOf(options[1]));status="Marqueur ajouté";}
       if("marker_remove".equals(a.action()))status=fr.worldarchitect.project.ProjectMarkers.remove(player,java.util.UUID.fromString(a.name()))?"Marqueur supprimé":"Marqueur introuvable";
       response=new MarkerResult(true,status,dimension,fr.worldarchitect.project.ProjectMarkers.list(player));
      }catch(Exception ex){response=new MarkerResult(false,"Action impossible dans ce projet",dimension,java.util.List.of());}
