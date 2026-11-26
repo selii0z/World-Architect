@@ -53,6 +53,21 @@ public final class MapCatalog {
         Files.writeString(folder.resolve("project.json"), new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(project), StandardOpenOption.CREATE_NEW);
     }
 
+    public static Path importSource(String collection, String sourceName, String destinationName) throws IOException {
+        Path parent = child(root(), collection);
+        if (!directory(parent)) throw new IOException("Unknown collection");
+        Path source = child(parent, sourceName);
+        Path destination = child(parent, destinationName);
+        if (Files.exists(destination, LinkOption.NOFOLLOW_LINKS)) throw new FileAlreadyExistsException(destinationName);
+        Format type = format(source);
+        if (type == Format.ZIP) return MapArchive.importTerrain(source, destination);
+        if ((type == Format.WORLD || type == Format.REGION) && directory(source.resolve("region"))) {
+            if (Files.exists(source.resolve("session.lock"), LinkOption.NOFOLLOW_LINKS)) throw new IOException("Import an offline copy without session.lock");
+            return MapTerrain.snapshot(source, destination);
+        }
+        throw new IOException("Unsupported terrain source");
+    }
+
     private static Format format(Path path) throws IOException {
         if (directory(path)) {
             if (file(path.resolve("project.json"))) return Format.PROJECT;
