@@ -8,15 +8,15 @@ import net.minecraft.world.level.GameType;
 public final class ConstructionSessions {
  private ConstructionSessions(){}
  // Keep disabled until modded inventories and recovery are validated.
- private static final boolean ENABLED=false;
+ private static final boolean ENABLED=Boolean.getBoolean("worldarchitect.experimentalConstruction");
  public static Project requireEditor(ServerPlayer player) throws IOException {
-  if(!ENABLED)throw new IllegalStateException("Construction recovery not validated");
+  if(!ENABLED)throw new IllegalStateException("Experimental construction disabled; use a disposable test world with -Dworldarchitect.experimentalConstruction=true");
   if(!player.getServer().isSameThread()||!player.hasPermissions(2)||!player.isCreative())throw new IllegalStateException("Construction authorization required");
   if(!InventoryJournal.exists(player)||VisitJournal.read(player)==null)throw new IllegalStateException("No active construction session");
   return ProjectService.forLevel(player.serverLevel()).orElseThrow(()->new IllegalStateException("Not a project dimension"));
  }
  public static void enter(ServerPlayer player, UUID projectId) throws IOException {
-  if(!ENABLED) throw new IllegalStateException("Construction recovery not validated");
+  if(!ENABLED) throw new IllegalStateException("Experimental construction disabled; use a disposable test world with -Dworldarchitect.experimentalConstruction=true");
   Project project=ProjectService.requireProject(player,projectId);
   var target=ProjectWorlds.resolve(player,project).orElseThrow(()->new IllegalStateException("Dimension not loaded"));
   if(VisitJournal.read(player)!=null||InventoryJournal.exists(player)) throw new IllegalStateException("Unresolved session");
