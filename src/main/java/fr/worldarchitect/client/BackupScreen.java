@@ -43,7 +43,8 @@ public final class BackupScreen extends Screen {
   g.drawCenteredString(font,"SAUVEGARDES : "+map,width/2,y,0xffb6c69c);
   var list=rows();
   for(int i=0;i<4;i++){int n=page*4+i;if(n>=list.size())break;String a=list.get(n);
-   String[] parts=a.split("-",8);String title=parts.length==8?parts[7].replace(".zip",""):a;
+   String[] parts=a.split("-",8);String title=parts.length==8?parts[7].substring(0,parts[7].length()-4):a;
+   if(parts.length==8)try{title=java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm").withZone(java.time.ZoneId.systemDefault()).format(java.time.Instant.ofEpochMilli(Long.parseLong(parts[1])))+" "+title;}catch(RuntimeException ignored){}
    g.drawString(font,font.plainSubstrByWidth((a.startsWith("auto-")?"Auto : ":"Manuelle : ")+title,w-64),x,y+25+i*20,a.equals(selected)?0xffb6c69c:0xffdddddd);
   }
   var result=ProjectPackets.catalog();
