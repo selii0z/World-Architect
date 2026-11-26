@@ -15,6 +15,12 @@ public final class BlockEditScheduler {
     private BlockEditScheduler(){}
     private record Running(UUID owner, BlockEditJob job, java.nio.file.Path archive, BlockEditHistory.Entry replay, boolean reverse, boolean recovery){}
     private static final Map<MinecraftServer,Map<ResourceKey<Level>,Running>> JOBS=new IdentityHashMap<>();
+    public static void requireIdle(ServerPlayer player,Project project)throws java.io.IOException{
+        var server=player.getServer();
+        var jobs=JOBS.get(server);
+        if(jobs!=null&&jobs.containsKey(player.serverLevel().dimension()))throw new java.io.IOException("Construction operation already running");
+        requireCleanJournal(server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).resolve("worldarchitect/block-edits").resolve(project.id().toString()));
+    }
     private static void requireCleanJournal(java.nio.file.Path dir) throws java.io.IOException {
         if(!java.nio.file.Files.exists(dir))return;
         try(var pending=java.nio.file.Files.newDirectoryStream(dir,"*.pending.nbt")){
