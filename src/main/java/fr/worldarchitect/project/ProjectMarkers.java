@@ -64,6 +64,14 @@ public final class ProjectMarkers {
   if(!level.getBlockState(pos).getCollisionShape(level,pos).isEmpty()||!level.getBlockState(pos.above()).getCollisionShape(level,pos.above()).isEmpty()||!level.getFluidState(pos).isEmpty()||!level.getFluidState(pos.above()).isEmpty())throw new IOException("Marker obstructed");
   player.teleportTo(level,marker.x()+0.5,marker.y(),marker.z()+0.5,player.getYRot(),player.getXRot());
  }
+ public static Marker update(ServerPlayer player,UUID id,String name,Category category,Color color)throws IOException{
+  var project=ConstructionSessions.requireEditor(player);
+  name=name.strip();
+  if(name.isEmpty()||name.length()>64||name.chars().anyMatch(Character::isISOControl))throw new IOException("Invalid marker name");
+  var markers=new ArrayList<>(list(player));
+  for(int i=0;i<markers.size();i++){var old=markers.get(i);if(id.equals(old.id())){var updated=new Marker(id,name,old.x(),old.y(),old.z(),category,color);markers.set(i,updated);save(path(player,project),markers);return updated;}}
+  throw new IOException("Marker not found");
+ }
  public static boolean remove(ServerPlayer player,UUID id)throws IOException{
   var project=ConstructionSessions.requireEditor(player);
   var markers=new ArrayList<>(list(player));
