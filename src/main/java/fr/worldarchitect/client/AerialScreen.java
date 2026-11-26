@@ -84,7 +84,7 @@ public final class AerialScreen extends Screen {
    }
   }
   g.drawCenteredString(font,"X: "+cx+"  Z: "+cz,width/2,height-60,0xffe9eadf);
-  g.drawCenteredString(font,"Clic droit sur un marqueur : TP",width/2,height-72,0xffb6c69c);
+  g.drawCenteredString(font,"Clic droit : créer un marqueur / TP",width/2,height-72,0xffb6c69c);
   super.render(g,mx,my,delta);
  }
  @Override public boolean mouseScrolled(double x,double y,double horizontal,double vertical){
@@ -112,6 +112,7 @@ public final class AerialScreen extends Screen {
     }
    }
   }
+  if(button==1&&overMap(x,y)&&minecraft.level!=null){int pixel=pixelSize();int bx=cx+(int)Math.floor((x-(width-64*pixel)/2.0)/pixel*step)-32*step;int bz=cz+(int)Math.floor((y-24)/pixel*step)-32*step;minecraft.setScreen(new MapMarkerScreen(this,bx,bz));return true;}
   if(button==0&&overMap(x,y)){dragging=true;dragX=0;dragZ=0;return true;}return super.mouseClicked(x,y,button);
  }
  @Override public boolean mouseDragged(double x,double y,int button,double dx,double dy){
