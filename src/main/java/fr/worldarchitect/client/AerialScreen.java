@@ -84,7 +84,11 @@ public final class AerialScreen extends Screen {
    }
   }
   g.drawCenteredString(font,"X: "+cx+"  Z: "+cz,width/2,height-60,0xffe9eadf);
-  g.drawCenteredString(font,"Clic droit : créer un marqueur / TP",width/2,height-72,0xffb6c69c);
+  var markerStatus=ProjectPackets.markers();
+  String hint="Clic droit : créer un marqueur / TP";
+  int hintColor=0xffb6c69c;
+  if(markerStatus!=null&&markerStatus.message()!=null&&!markerStatus.message().isBlank()&&minecraft.level!=null&&minecraft.level.dimension().location().toString().equals(markerStatus.dimension())){hint=markerStatus.message();hintColor=markerStatus.success()?0xff8fd28a:0xffff7777;}
+  g.drawCenteredString(font,font.plainSubstrByWidth(hint,Math.max(1,width-12)),width/2,height-72,hintColor);
   super.render(g,mx,my,delta);
  }
  @Override public boolean mouseScrolled(double x,double y,double horizontal,double vertical){
