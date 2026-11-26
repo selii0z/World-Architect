@@ -22,9 +22,10 @@ public final class OfflineProjectBackups {
   Path dir=backupRoot.resolve(project.toString());
   if(!Files.isDirectory(dir,LinkOption.NOFOLLOW_LINKS))return List.of();
   try(var paths=Files.list(dir)){
-   return paths.filter(p->Files.isRegularFile(p,LinkOption.NOFOLLOW_LINKS)).map(p->p.getFileName().toString()).filter(OfflineProjectBackups::valid).sorted(Comparator.reverseOrder()).limit(1000).toList();
+   return paths.filter(p->Files.isRegularFile(p,LinkOption.NOFOLLOW_LINKS)).map(p->p.getFileName().toString()).filter(OfflineProjectBackups::valid).sorted(Comparator.comparingLong(OfflineProjectBackups::timestamp).reversed().thenComparing(Comparator.naturalOrder())).limit(1000).toList();
   }
  }
+ private static long timestamp(String name){return Long.parseLong(name.split("-",3)[1]);}
  private static boolean valid(String name){return name!=null&&name.matches("(auto|manual)-[0-9]{13}-[0-9a-f-]{36}-[a-zA-Z0-9_-]{1,64}\\.zip");}
  /** Restore as a new offline terrain copy; never replace the original. */
  public static Path restoreCopy(Path backupRoot,UUID project,String name,Path stagingRoot,Path destination)throws IOException{
