@@ -13,9 +13,11 @@ final class ProjectBackupArchive {
  // Caller must ensure the source is a consistent, quiescent project snapshot.
  static Path archive(Path snapshot,Path backupRoot,UUID project,String label,boolean automatic) throws IOException {
   if(label==null||!label.matches("[a-zA-Z0-9_-]{1,64}"))throw new IllegalArgumentException("Invalid backup label");
+  if(Files.isSymbolicLink(snapshot))throw new IOException("Symbolic link snapshot");
   Path source=snapshot.toRealPath();
   if(!Files.isDirectory(source))throw new IOException("Missing snapshot");
   Path dir=backupRoot.resolve(project.toString());
+  if(Files.isSymbolicLink(backupRoot)||Files.isSymbolicLink(dir))throw new IOException("Invalid backup directory");
   Files.createDirectories(dir);
   dir=dir.toRealPath();
   if(dir.startsWith(source))throw new IOException("Backup directory inside snapshot");
@@ -40,9 +42,10 @@ final class ProjectBackupArchive {
  }
  static void pruneAutomatic(Path backupRoot,UUID project) throws IOException {
   Path dir=backupRoot.resolve(project.toString());
-  if(!Files.isDirectory(dir))return;
+  if(Files.isSymbolicLink(backupRoot)||Files.isSymbolicLink(dir))throw new IOException("Invalid backup directory");
+  if(!Files.isDirectory(dir,LinkOption.NOFOLLOW_LINKS))return;
   try(var paths=Files.list(dir)){
-   var files=paths.filter(p->Files.isRegularFile(p,LinkOption.NOFOLLOW_LINKS)&&p.getFileName().toString().matches("auto-[0-9]{13}-[0-9a-f-]{36}-[a-zA-Z0-9_-]{1,64}\\.zip")).sorted(Comparator.comparing((Path p)->p.getFileName().toString()).reversed()).toList();
+   var files=paths.filter(p->Files.isRegularFile(p,LinkOption.NOFOLLOW_LINKS)&&p.getFileName().toString().matches("auto-[0-9]{13}-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-[a-zA-Z0-9_-]{1,64}\\.zip")).sorted(Comparator.comparing((Path p)->p.getFileName().toString()).reversed()).toList();
    for(int i=10;i<files.size();i++)Files.delete(files.get(i));
   }
  }
