@@ -44,6 +44,24 @@ public final class OverviewImageScreen extends Screen{
    int w=Math.max(1,(int)(iw*scale)),h=Math.max(1,(int)(ih*scale));
    g.enableScissor(0,22,width,height-20);
    g.blit(texture,(int)((width-w)/2.0+dx),(int)((height-h)/2.0+dz),w,h,0f,0f,iw,ih,iw,ih);
+   if(activeProject&&step>0&&minecraft.level!=null){
+    double left=(width-w)/2.0+dx,top=(height-h)/2.0+dz;
+    var markers=ProjectPackets.markers();
+    if(markers!=null&&markers.success()&&minecraft.level.dimension().location().toString().equals(markers.dimension())){
+     for(var m:markers.markers()){
+      double u=(m.x()-(double)originX)/step,v=(m.z()-(double)originZ)/step;
+      if(u<0||v<0||u>=iw||v>=ih)continue;
+      int px=(int)(left+u*w/iw),py=(int)(top+v*h/ih);
+      int color=switch(m.color()){case GREEN->0xff52b765;case BLUE->0xff498be4;case YELLOW->0xffe5c441;case RED->0xffdb5151;case PURPLE->0xffa66bd9;default->0xffffffff;};
+      g.fill(px-4,py-4,px+5,py+5,0xff111111);g.fill(px-3,py-3,px+4,py+4,color);
+      if(Math.abs(mx-px)<=6&&Math.abs(my-py)<=6)g.drawString(font,m.name(),px+6,py-10,color);
+     }
+    }
+    if(minecraft.player!=null){
+     double u=(minecraft.player.getX()-originX)/step,v=(minecraft.player.getZ()-originZ)/step;
+     if(u>=0&&v>=0&&u<iw&&v<ih){int px=(int)(left+u*w/iw),py=(int)(top+v*h/ih);g.fill(px-4,py-4,px+5,py+5,0xff111111);g.fill(px-2,py-2,px+3,py+3,0xffffffff);}
+    }
+   }
    g.disableScissor();
    int px=(int)Math.floor((mx-(width-w)/2.0-dx)*iw/w),pz=(int)Math.floor((my-(height-h)/2.0-dz)*ih/h);
    if(step>0&&px>=0&&px<iw&&pz>=0&&pz<ih&&my>=22&&my<height-20)g.drawCenteredString(font,"X : "+(originX+(long)px*step)+"  Z : "+(originZ+(long)pz*step)+"  (± "+step+" blocs)",width/2,height-14,0xffffff);
