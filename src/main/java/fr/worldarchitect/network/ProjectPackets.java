@@ -53,7 +53,7 @@ public final class ProjectPackets {
  private static final fr.worldarchitect.project.StructureSelection SELECTIONS=new fr.worldarchitect.project.StructureSelection();
  private static volatile Action activePreview;
  public static boolean hasActivePreview(){return activePreview!=null;}
- public static void resetClientPreview(){activePreview=null;latest=null;markers=null;ghostId=null;ghostParts.clear();ghostBlocks=java.util.List.of();}
+ public static void resetClientPreview(){activePreview=null;latest=null;markers=null;aerial=null;ghostId=null;ghostParts.clear();ghostBlocks=java.util.List.of();}
  public static void manipulatePreview(int rotationDelta,boolean flip){
   var a=activePreview;if(a==null)return;
   var rotations=net.minecraft.world.level.block.Rotation.values();
@@ -88,10 +88,21 @@ public final class ProjectPackets {
  private static volatile MarkerResult markers;
  public static MarkerResult markers(){return markers;}
  public static void refreshMarkers(){markers=null;request(new Action("marker_list",null,null,0,null,false));}
+ public record AerialResult(String message,fr.worldarchitect.project.AerialMap.Tile tile){}
+ public record AerialReply(String json) implements CustomPacketPayload {
+  public static final Type<AerialReply> TYPE=new Type<>(ResourceLocation.fromNamespaceAndPath("worldarchitect","aerial_reply"));
+  public static final StreamCodec<RegistryFriendlyByteBuf,AerialReply> CODEC=StreamCodec.of((b,p)->b.writeUtf(p.json(),262144),b->new AerialReply(b.readUtf(262144)));
+  public Type<AerialReply> type(){return TYPE;}
+ }
+ private static volatile AerialResult aerial;
+ public static AerialResult aerial(){return aerial;}
+ public static void requestAerial(int x,int z,int step){aerial=null;request(new Action("aerial",x+","+z,null,step,null,false));}
+ private static final java.util.Map<ServerPlayer,Long> AERIAL_LIMIT=new java.util.WeakHashMap<>();
  private static volatile Result latest;
  public static Result latest(){return latest;}
  @SubscribeEvent public static void register(RegisterPayloadHandlersEvent e){
-  var r=e.registrar("11");
+  var r=e.registrar("12");
+  r.playToClient(AerialReply.TYPE,AerialReply.CODEC,(p,c)->c.enqueueWork(()->aerial=GSON.fromJson(p.json(),AerialResult.class)));
   r.playToClient(MarkerReply.TYPE,MarkerReply.CODEC,(p,c)->c.enqueueWork(()->markers=GSON.fromJson(p.json(),MarkerResult.class)));
   r.playToClient(CatalogReply.TYPE,CatalogReply.CODEC,(p,c)->c.enqueueWork(()->catalog=GSON.fromJson(p.json(),CatalogResult.class)));
   r.playToClient(GhostReply.TYPE,GhostReply.CODEC,(p,c)->c.enqueueWork(()->acceptGhost(GSON.fromJson(p.json(),GhostChunk.class))));
@@ -111,6 +122,18 @@ public final class ProjectPackets {
     String message="OK";
     PreviewBounds preview=null;
     java.util.List<fr.worldarchitect.project.StructureLibrary.Metadata> structures=java.util.List.of();
+    if("aerial".equals(a.action())){
+     AerialResult response;
+     try{
+      long now=System.nanoTime();Long last=AERIAL_LIMIT.get(player);
+      if(last!=null&&now-last<500000000L)throw new IllegalStateException("Rate limited");
+      AERIAL_LIMIT.put(player,now);
+      String[] center=a.name().split(",",-1);
+      if(center.length!=2)throw new IllegalArgumentException("Invalid center");
+      response=new AerialResult("Carte actualisée",fr.worldarchitect.project.AerialMap.sample(player,Integer.parseInt(center[0]),Integer.parseInt(center[1]),a.size()));
+     }catch(Exception ex){response=new AerialResult("Carte indisponible ou requête trop rapide",null);}
+     PacketDistributor.sendToPlayer(player,new AerialReply(GSON.toJson(response)));return;
+    }
     if("marker_list".equals(a.action())||"marker_add".equals(a.action())||"marker_remove".equals(a.action())||"marker_teleport".equals(a.action())){
      MarkerResult response;
      String dimension=player.serverLevel().dimension().location().toString();
