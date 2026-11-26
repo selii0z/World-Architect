@@ -7,7 +7,7 @@ public final class DimensionDefinitions {
  private static final Gson GSON=new GsonBuilder().setPrettyPrinting().create();
  private DimensionDefinitions(){}
  public static void stage(Project project, Path pack) throws IOException {
-  if(project.worldType()==Project.WorldType.IMPORTED) throw new IllegalArgumentException("Import requires validated world data");
+
   JsonObject root=new JsonObject();
   root.addProperty("type","minecraft:overworld");
   JsonObject generator=new JsonObject();
@@ -21,7 +21,7 @@ public final class DimensionDefinitions {
   }else{
    generator.addProperty("type","minecraft:flat");
    JsonObject settings=new JsonObject();
-   settings.addProperty("biome",project.worldType()==Project.WorldType.VOID?"minecraft:the_void":"minecraft:plains");
+   settings.addProperty("biome",(project.worldType()==Project.WorldType.VOID||project.worldType()==Project.WorldType.IMPORTED)?"minecraft:the_void":"minecraft:plains");
    settings.addProperty("features",false);
    settings.addProperty("lakes",false);
    settings.add("structure_overrides",new JsonArray());
