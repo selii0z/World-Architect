@@ -166,6 +166,12 @@ public final class ProjectPackets {
      SELECTIONS.clear(player.getUUID());
      message="Sélection effacée";
     }
+    else if("create_catalog_project".equals(a.action())) {
+     var folder=fr.worldarchitect.project.MapCatalog.reserveMap(a.profile(),a.name());
+     var project=ProjectService.create(player,a.name(),a.worldType(),a.size(),a.width(),"worldarchitect:generic",a.automaticBackups());
+     fr.worldarchitect.project.MapCatalog.linkProject(folder,project);
+     message="Projet créé dans la collection ; redémarrage nécessaire";
+    }
     else if("create".equals(a.action())) ProjectService.create(player,a.name(),a.worldType(),a.size(),a.width(),a.profile(),a.automaticBackups());
     else if("visit".equals(a.action())) fr.worldarchitect.project.VisitSessions.enter(player,java.util.UUID.fromString(a.name()));
     else if("leave".equals(a.action())) {fr.worldarchitect.project.ConstructionSessions.leave(player);SELECTIONS.clear(player.getUUID());}
