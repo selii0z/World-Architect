@@ -65,7 +65,7 @@ public final class ArchitectScreen extends Screen {
    }else if(importSource!=null){
     var field=new EditBox(font,x+12,y+168,(w-28)/2,20,Component.literal("Nom de destination"));
     field.setMaxLength(80);field.setValue(importName);field.setResponder(v->importName=v);addRenderableWidget(field);
-    button("Importer",x+w/2+2,y+168,(w-28)/2,()->{if(!importName.isBlank()){ProjectPackets.request(new ProjectPackets.Action(importSource.toLowerCase(java.util.Locale.ROOT).endsWith(".schem")?"import_schematic":"import_map",collection,null,0,importSource+"|"+importName,false));importSource=null;catalogPage=0;rebuild();}});
+    button("Importer",x+w/2+2,y+168,(w-28)/2,()->{if(!importName.isBlank()){ProjectPackets.request(new ProjectPackets.Action((importSource.toLowerCase(java.util.Locale.ROOT).endsWith(".schem")||importSource.toLowerCase(java.util.Locale.ROOT).endsWith(".litematic"))?"import_schematic":"import_map",collection,null,0,importSource+"|"+importName,false));importSource=null;catalogPage=0;rebuild();}});
    }else{
     button("+ Créer une map",x+12,y+168,w-24,()->{targetCollection=collection;catalogOpen=false;creating=true;rebuild();});
    }
@@ -179,7 +179,7 @@ public final class ArchitectScreen extends Screen {
     if(i<rows.size()){
      if(collection==null){collection=rows.get(i);catalogPage=0;importSource=null;rebuild();return true;}
      var entry=mapEntries().get(i);var format=entry.format();
-     if(format==fr.worldarchitect.project.MapCatalog.Format.ZIP||format==fr.worldarchitect.project.MapCatalog.Format.WORLD||format==fr.worldarchitect.project.MapCatalog.Format.REGION||(format==fr.worldarchitect.project.MapCatalog.Format.SCHEM&&entry.name().toLowerCase(java.util.Locale.ROOT).endsWith(".schem"))){importSource=entry.name();importName=entry.name().replaceFirst("(?i)\\.(zip|schem)$","");if(importName.equals(entry.name()))importName+="-copie";rebuild();return true;}
+     if(format==fr.worldarchitect.project.MapCatalog.Format.ZIP||format==fr.worldarchitect.project.MapCatalog.Format.WORLD||format==fr.worldarchitect.project.MapCatalog.Format.REGION||format==fr.worldarchitect.project.MapCatalog.Format.LITEMATIC||(format==fr.worldarchitect.project.MapCatalog.Format.SCHEM&&entry.name().toLowerCase(java.util.Locale.ROOT).endsWith(".schem"))){importSource=entry.name();importName=entry.name().replaceFirst("(?i)\\.(zip|schem|litematic)$","");if(importName.equals(entry.name()))importName+="-copie";rebuild();return true;}
     }
    }
    return super.mouseClicked(mx,my,button);
