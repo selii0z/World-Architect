@@ -56,7 +56,7 @@ public final class MapCatalog {
     public static Path resolveSchematic(String collection,String name) throws IOException {
         Path parent=child(root(),collection);
         Path source=child(parent,name);
-        if(!directory(parent)||!file(source)||!(name.toLowerCase(Locale.ROOT).endsWith(".schem")||name.toLowerCase(Locale.ROOT).endsWith(".litematic")))
+        if(!directory(parent)||!file(source)||!(name.toLowerCase(Locale.ROOT).endsWith(".schem")||name.toLowerCase(Locale.ROOT).endsWith(".litematic")||name.toLowerCase(Locale.ROOT).endsWith(".nbt")))
             throw new IOException("Schematic or Litematica file required");
         return source;
     }
