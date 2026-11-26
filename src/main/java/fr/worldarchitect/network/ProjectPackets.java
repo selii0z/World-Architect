@@ -84,6 +84,7 @@ public final class ProjectPackets {
   public static final StreamCodec<RegistryFriendlyByteBuf,CatalogReply> CODEC=StreamCodec.of((b,p)->b.writeUtf(p.json(),262144),b->new CatalogReply(b.readUtf(262144)));
   public Type<CatalogReply> type(){return TYPE;}
  }
+ private static final fr.worldarchitect.project.OverviewJob OVERVIEW=new fr.worldarchitect.project.OverviewJob();
  private static final java.util.concurrent.atomic.AtomicBoolean IMPORTING=new java.util.concurrent.atomic.AtomicBoolean();
  private static volatile CatalogResult catalog;
  public static CatalogResult catalog(){return catalog;}
@@ -169,6 +170,20 @@ public final class ProjectPackets {
       response=new CatalogResult(true,"Structure ajoutée à la bibliothèque",fr.worldarchitect.project.MapCatalog.scan());
       if(GSON.toJson(response).length()>250000)response=new CatalogResult(true,"Structure importée ; catalogue trop volumineux",java.util.List.of());
      }catch(Exception ex){com.mojang.logging.LogUtils.getLogger().warn("Schematic import failed",ex);response=new CatalogResult(false,"Échec de l’opération de terrain de la structure",java.util.List.of());}
+     PacketDistributor.sendToPlayer(player,new CatalogReply(GSON.toJson(response)));return;
+    }
+    if("overview_start".equals(a.action())||"overview_status".equals(a.action())||"overview_cancel".equals(a.action())){
+     CatalogResult response;
+     try{
+      if("overview_start".equals(a.action())){
+       var options=a.profile().split("\\|",-1);
+       if(options.length!=3)throw new IllegalArgumentException("Invalid overview request");
+       var terrain=fr.worldarchitect.project.MapCatalog.resolveTerrain(a.name(),options[0]);
+       OVERVIEW.start(terrain,terrain.resolve("overview.png"),Integer.parseInt(options[1]),Integer.parseInt(options[2]),a.size(),a.width());
+      }else if("overview_cancel".equals(a.action()))OVERVIEW.cancel();
+      var status=OVERVIEW.status();
+      response=new CatalogResult(!"failed".equals(status.phase()),"Carte : "+status.phase()+" "+status.done()+"/"+status.total(),java.util.List.of());
+     }catch(Exception ex){response=new CatalogResult(false,"Impossible de générer la carte",java.util.List.of());}
      PacketDistributor.sendToPlayer(player,new CatalogReply(GSON.toJson(response)));return;
     }
     if("backup_list".equals(a.action())){
