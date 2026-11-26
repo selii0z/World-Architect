@@ -144,11 +144,12 @@ public final class ProjectPackets {
      }catch(Exception ex){response=new AerialResult("Carte indisponible ou requête trop rapide",null);}
      PacketDistributor.sendToPlayer(player,new AerialReply(GSON.toJson(response)));return;
     }
-    if("marker_list".equals(a.action())||"marker_add".equals(a.action())||"marker_remove".equals(a.action())||"marker_teleport".equals(a.action())){
+    if("marker_list".equals(a.action())||"marker_add".equals(a.action())||"marker_surface".equals(a.action())||"marker_remove".equals(a.action())||"marker_teleport".equals(a.action())){
      MarkerResult response;
      String dimension=player.serverLevel().dimension().location().toString();
      try{
       String status="Marqueurs actualisés";
+      if("marker_surface".equals(a.action())){var options=a.profile().split(",",-1);if(options.length!=4)throw new IllegalArgumentException("Invalid marker coordinates");fr.worldarchitect.project.ProjectMarkers.addSurface(player,a.name(),fr.worldarchitect.project.ProjectMarkers.Category.valueOf(options[0]),fr.worldarchitect.project.ProjectMarkers.Color.valueOf(options[1]),Integer.parseInt(options[2]),Integer.parseInt(options[3]));status="Marqueur ajouté";}
       if("marker_add".equals(a.action())){var options=a.profile()==null?new String[]{"GENERAL","WHITE"}:a.profile().split(",",-1);if(options.length!=2)throw new IllegalArgumentException("Invalid marker options");fr.worldarchitect.project.ProjectMarkers.add(player,a.name(),fr.worldarchitect.project.ProjectMarkers.Category.valueOf(options[0]),fr.worldarchitect.project.ProjectMarkers.Color.valueOf(options[1]));status="Marqueur ajouté";}
       if("marker_remove".equals(a.action()))status=fr.worldarchitect.project.ProjectMarkers.remove(player,java.util.UUID.fromString(a.name()))?"Marqueur supprimé":"Marqueur introuvable";
       if("marker_teleport".equals(a.action())){fr.worldarchitect.project.ProjectMarkers.teleport(player,java.util.UUID.fromString(a.name()));status="Téléportation effectuée";}
