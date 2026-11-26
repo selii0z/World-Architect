@@ -53,6 +53,7 @@ public final class AerialMap {
   var changed=new java.util.HashSet<Key>();
   for(int z=0;z<SIZE;z++)for(int x=0;x<SIZE;x++){
    int bx=ox+x*step,bz=oz+z*step;
+   bx=Math.floorDiv(bx,step)*step;bz=Math.floorDiv(bz,step)*step;
    if(!project.bounds().contains(bx+0.5,bz+0.5))continue;
    int tx=Math.floorDiv(bx,span)*span,tz=Math.floorDiv(bz,span)*span;
    var key=new Key(root,project.id(),tx,tz,step);
@@ -60,7 +61,14 @@ public final class AerialMap {
    var data=tiles.get(key);
    int index=Math.floorDiv(bz-tz,step)*SIZE+Math.floorDiv(bx-tx,step);
    if(data!=null)colors[z*SIZE+x]=data[index];
-   bx=Math.floorDiv(bx,step)*step;bz=Math.floorDiv(bz,step)*step;
+   if(colors[z*SIZE+x]==0&&step>1){
+    int finer=step/2, fineSpan=SIZE*finer;
+    int fx=Math.floorDiv(bx,fineSpan)*fineSpan,fz=Math.floorDiv(bz,fineSpan)*fineSpan;
+    var fineKey=new Key(root,project.id(),fx,fz,finer);
+    if(!tiles.containsKey(fineKey))tiles.put(fineKey,cached(fineKey));
+    var fine=tiles.get(fineKey);
+    if(fine!=null)colors[z*SIZE+x]=fine[(bz-fz)/finer*SIZE+(bx-fx)/finer];
+   }
    var chunk=level.getChunkSource().getChunkNow(bx>>4,bz>>4);
    if(chunk==null)continue;
    int y=chunk.getHeight(Heightmap.Types.WORLD_SURFACE,bx&15,bz&15);
