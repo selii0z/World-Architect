@@ -56,6 +56,13 @@ public final class BlockEditScheduler {
                     if(job.state()==BlockEditJob.State.COMPLETE){
                         var destination=entry.archive().resolveSibling(entry.archive().getFileName().toString().replace(".pending.nbt",".complete.nbt"));
                         java.nio.file.Files.move(entry.archive(),destination,java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+                        var history=BlockEditHistory.load(destination.resolveSibling("history.json"));
+                        var id=UUID.fromString(destination.getFileName().toString().replace(".complete.nbt",""));
+                        var expired=history.record(new BlockEditHistory.Entry(id,entry.owner()));
+                        for(var old:expired){
+                            try{java.nio.file.Files.deleteIfExists(destination.resolveSibling(old.archive()+".complete.nbt"));}
+                            catch(java.io.IOException cleanup){com.mojang.logging.LogUtils.getLogger().warn("Cannot remove expired edit archive",cleanup);}
+                        }
                     }else if(!job.rollbackConflict())java.nio.file.Files.deleteIfExists(entry.archive());
                 }catch(java.io.IOException ex){com.mojang.logging.LogUtils.getLogger().error("Cannot finalize block edit archive",ex);}
                 var player=event.getServer().getPlayerList().getPlayer(entry.owner());
