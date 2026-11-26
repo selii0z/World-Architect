@@ -8,7 +8,7 @@ import net.neoforged.fml.loading.FMLPaths;
 
 /** Read-only discovery of server map sources. Loading is a separate operation. */
 public final class MapCatalog {
-    public enum Format { WORLD, REGION, ZIP, SCHEM, NBT, LITEMATIC, EMPTY }
+    public enum Format { WORLD, REGION, ZIP, SCHEM, NBT, LITEMATIC, PROJECT, EMPTY }
     public record Entry(String collection, String name, Format format) {}
     public record Collection(String name, List<Entry> maps) {}
     private MapCatalog() {}
@@ -49,8 +49,13 @@ public final class MapCatalog {
         return Files.createDirectory(path);
     }
 
+    public static void linkProject(Path folder, Project project) throws IOException {
+        Files.writeString(folder.resolve("project.json"), new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(project), StandardOpenOption.CREATE_NEW);
+    }
+
     private static Format format(Path path) throws IOException {
         if (directory(path)) {
+            if (file(path.resolve("project.json"))) return Format.PROJECT;
             if (file(path.resolve("level.dat"))) return Format.WORLD;
             if (directory(path.resolve("region"))) return Format.REGION;
             try (Stream<Path> children = Files.list(path)) {
