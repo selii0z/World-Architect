@@ -163,7 +163,7 @@ public final class ProjectPackets {
      }catch(Exception ex){response=new AerialResult("Carte indisponible ou requête trop rapide",null);}
      PacketDistributor.sendToPlayer(player,new AerialReply(GSON.toJson(response)));return;
     }
-    if("marker_list".equals(a.action())||"marker_add".equals(a.action())||"marker_move".equals(a.action())||"marker_update".equals(a.action())||"marker_surface".equals(a.action())||"marker_remove".equals(a.action())||"marker_teleport".equals(a.action())){
+    if("marker_list".equals(a.action())||"marker_add".equals(a.action())||"marker_move".equals(a.action())||"marker_update".equals(a.action())||"marker_surface".equals(a.action())||"marker_remove".equals(a.action())||"marker_teleport".equals(a.action())||"surface_teleport".equals(a.action())){
      MarkerResult response;
      String dimension=player.serverLevel().dimension().location().toString();
      try{
@@ -173,6 +173,7 @@ public final class ProjectPackets {
       if("marker_surface".equals(a.action())){var options=a.profile().split(",",-1);if(options.length!=4)throw new IllegalArgumentException("Invalid marker coordinates");fr.worldarchitect.project.ProjectMarkers.addSurface(player,a.name(),fr.worldarchitect.project.ProjectMarkers.Category.valueOf(options[0]),fr.worldarchitect.project.ProjectMarkers.Color.valueOf(options[1]),Integer.parseInt(options[2]),Integer.parseInt(options[3]));status="Marqueur ajouté";}
       if("marker_add".equals(a.action())){var options=a.profile()==null?new String[]{"GENERAL","WHITE"}:a.profile().split(",",-1);if(options.length!=2)throw new IllegalArgumentException("Invalid marker options");fr.worldarchitect.project.ProjectMarkers.add(player,a.name(),fr.worldarchitect.project.ProjectMarkers.Category.valueOf(options[0]),fr.worldarchitect.project.ProjectMarkers.Color.valueOf(options[1]));status="Marqueur ajouté";}
       if("marker_remove".equals(a.action()))status=fr.worldarchitect.project.ProjectMarkers.remove(player,java.util.UUID.fromString(a.name()))?"Marqueur supprimé":"Marqueur introuvable";
+      if("surface_teleport".equals(a.action())){var coords=a.profile().split(",",-1);if(coords.length!=2)throw new IllegalArgumentException("Invalid coordinates");fr.worldarchitect.project.ProjectMarkers.teleportSurface(player,Integer.parseInt(coords[0]),Integer.parseInt(coords[1]));status="Téléportation effectuée";}
       if("marker_teleport".equals(a.action())){fr.worldarchitect.project.ProjectMarkers.teleport(player,java.util.UUID.fromString(a.name()));status="Téléportation effectuée";}
       response=new MarkerResult(true,status,dimension,fr.worldarchitect.project.ProjectMarkers.list(player));
      }catch(Exception ex){response=new MarkerResult(false,"Action impossible dans ce projet",dimension,java.util.List.of());}
