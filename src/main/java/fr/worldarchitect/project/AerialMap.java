@@ -33,7 +33,7 @@ public final class AerialMap {
   var level=player.serverLevel();
   if(!level.getServer().isSameThread()||!player.hasPermissions(2))throw new IOException("Access denied");
   var project=ProjectService.forLevel(level).orElseThrow(()->new IOException("Not a project"));
-  if(step!=1&&step!=2&&step!=4&&step!=8&&step!=16)throw new IOException("Invalid scale");
+  if(step!=1&&step!=2&&step!=4&&step!=8&&step!=16&&step!=32&&step!=64&&step!=128&&step!=256&&step!=512&&step!=1024)throw new IOException("Invalid scale");
   if(Math.abs((long)centerX)>29999000||Math.abs((long)centerZ)>29999000)throw new IOException("Invalid center");
   int ox=centerX-SIZE/2*step,oz=centerZ-SIZE/2*step;
   int[] colors=new int[SIZE*SIZE];
