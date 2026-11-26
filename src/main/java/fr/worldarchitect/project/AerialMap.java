@@ -12,6 +12,7 @@ public final class AerialMap {
  private static final java.util.Map<Key,int[]> CACHE=new java.util.LinkedHashMap<>(128,0.75f,true){
   protected boolean removeEldestEntry(java.util.Map.Entry<Key,int[]> e){return size()>128;}
  };
+ private static final java.util.Map<Key,int[]> DIRTY=new java.util.LinkedHashMap<>();
  private static final java.util.Set<Key> LOADING=new java.util.HashSet<>();
  private static synchronized int[] cached(Key key){
   int[] data=CACHE.get(key);
@@ -25,7 +26,16 @@ public final class AerialMap {
  }
  private static synchronized void persist(Key key,int[] data){
   CACHE.put(key,data);
-  try{IO.execute(()->{try{AerialCache.write(key.root(),key.project(),key.x(),key.z(),key.step(),data);}catch(IOException ex){org.slf4j.LoggerFactory.getLogger(AerialMap.class).warn("Cannot save aerial cache",ex);}});}catch(java.util.concurrent.RejectedExecutionException ex){org.slf4j.LoggerFactory.getLogger(AerialMap.class).warn("Aerial cache queue full; tile retained in memory");}
+  DIRTY.put(key,data);
+  flushDirty();
+ }
+ private static synchronized void flushDirty(){
+  var iterator=DIRTY.entrySet().iterator();
+  while(iterator.hasNext()&&IO.getQueue().remainingCapacity()>0){
+   var entry=iterator.next();var key=entry.getKey();var data=entry.getValue();
+   try{IO.execute(()->{try{AerialCache.write(key.root(),key.project(),key.x(),key.z(),key.step(),data);}catch(IOException ex){org.slf4j.LoggerFactory.getLogger(AerialMap.class).warn("Cannot save aerial cache",ex);}});iterator.remove();}catch(java.util.concurrent.RejectedExecutionException ex){break;}
+  }
+  while(DIRTY.size()>128){DIRTY.remove(DIRTY.keySet().iterator().next());org.slf4j.LoggerFactory.getLogger(AerialMap.class).warn("Aerial cache retry limit reached");}
  }
  public static final int SIZE=64;
  public record Tile(String dimension,int originX,int originZ,int step,int size,int[] colors,int length,int width){}
@@ -61,6 +71,7 @@ public final class AerialMap {
    if(data!=null&&data[index]!=colors[z*SIZE+x]){data[index]=colors[z*SIZE+x];changed.add(key);}
   }
   for(var key:changed)persist(key,tiles.get(key));
+  flushDirty();
   return new Tile(level.dimension().location().toString(),ox,oz,step,SIZE,colors,project.bounds().length(),project.bounds().width());
  }
 }
