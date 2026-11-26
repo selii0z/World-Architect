@@ -25,7 +25,7 @@ public final class ProjectService {
     if(level!=null){
      ProjectWorlds.configureBorder(level,project);
     }else com.mojang.logging.LogUtils.getLogger().info("Project {} dimension not loaded; restart with project datapack enabled",project.id());
-    if (project.worldType() == Project.WorldType.IMPORTED) continue;
+
     try { ProjectDatapack.stage(server, project); }
     catch (java.nio.file.FileAlreadyExistsException ignored) {}
     catch (IOException e) { com.mojang.logging.LogUtils.getLogger().error("Cannot stage project {}", project.id(), e); }
@@ -58,6 +58,14 @@ public final class ProjectService {
   return ProjectWorlds.resolve(player, requireProject(player,id)).isPresent();
  }
  public static List<Project> list(ServerPlayer player) { return authorized(player).list(); }
+ public static Project activateImported(ServerPlayer player,String collection,String name) throws IOException {
+  var registry=authorized(player);
+  var source=MapCatalog.resolveTerrain(collection,name);
+  var project=new Project(java.util.UUID.randomUUID(),name,Project.WorldType.IMPORTED,0,"worldarchitect:generic",true,0);
+  ImportedTerrain.prepare(player.getServer(),project,source);
+  ProjectDatapack.stage(player.getServer(),project);
+  return registry.register(project);
+ }
  public static Project create(ServerPlayer player, String name, Project.WorldType type, int size, String profile, boolean backups) throws IOException {return create(player,name,type,size,size,profile,backups);}
  public static Project create(ServerPlayer player,String name,Project.WorldType type,int size,int width,String profile,boolean backups) throws IOException {
   if (type == Project.WorldType.IMPORTED) throw new IllegalArgumentException("Import not implemented");
