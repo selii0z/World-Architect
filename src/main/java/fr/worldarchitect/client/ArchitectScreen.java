@@ -11,7 +11,7 @@ public final class ArchitectScreen extends Screen {
  private boolean creating=false, backups=true, selecting=false, library=false;
  private java.util.UUID selected;
  private boolean catalogOpen=false;
- private String collection=null, newCollection="";
+ private String collection=null, newCollection="", targetCollection=null;
  private int catalogPage=0;
  private java.util.List<String> catalogRows(){
   var r=ProjectPackets.catalog();if(r==null||!r.success())return java.util.List.of();
@@ -57,6 +57,8 @@ public final class ArchitectScreen extends Screen {
     var field=new EditBox(font,x+12,y+168,(w-28)/2,20,Component.literal("Nouvelle collection"));
     field.setMaxLength(80);field.setHint(Component.literal("Nom du dossier"));field.setValue(newCollection);field.setResponder(v->newCollection=v);addRenderableWidget(field);
     button("Créer dossier",x+w/2+2,y+168,(w-28)/2,()->{if(!newCollection.isBlank())ProjectPackets.request(new ProjectPackets.Action("create_collection",newCollection,null,0,null,false));});
+   }else{
+    button("+ Créer une map",x+12,y+168,w-24,()->{targetCollection=collection;catalogOpen=false;creating=true;rebuild();});
    }
    button("Retour",x+12,y+192,w-24,()->{if(collection!=null){collection=null;catalogPage=0;}else catalogOpen=false;rebuild();});
   }else if(library){
@@ -82,7 +84,7 @@ public final class ArchitectScreen extends Screen {
    button("Revenir au jeu",x+12,y+158,half,this::onClose);
    button("Retour aux projets",x+w/2+2,y+158,half,()->{selecting=false;rebuild();});
   }else if(!creating){
-   button("+ Créer un nouveau projet",x+12,y+144,w-24,()->{creating=true;rebuild();});
+   button("+ Créer un nouveau projet",x+12,y+144,w-24,()->{targetCollection=null;creating=true;rebuild();});
    button("<",x+12,y+118,30,()->page=Math.max(0,page-1));
    button(">",x+w-42,y+118,30,()->{var r=ProjectPackets.latest();if(r!=null&&(page+1)*4<r.projects().size())page++;});
    button("Visiter",x+12,y+168,(w-28)/2,()->{var r=ProjectPackets.latest();if(selected==null){notice="Sélectionnez un projet dans la liste";}else if(r==null||r.ready()==null||!r.ready().contains(selected)){notice="Redémarrez le monde ou le serveur pour charger le projet";}else{notice="Connexion au projet...";action("visit");}});
@@ -104,8 +106,8 @@ public final class ArchitectScreen extends Screen {
    }
    button("Profil : "+labels[profile],x+12,y+106,w-24,()->{profile=(profile+1)%profiles.length;rebuild();});
    button("Sauvegardes : "+(backups?"Oui":"Non"),x+12,y+130,w-24,()->{backups=!backups;rebuild();});
-   button("Créer",x+12,y+158,(w-28)/2,()->{if(!name.isBlank()&&type!=3&&(sizes[size]!=-1||(chosenSize()>=16&&chosenSize()<=60000&&chosenWidth()>=16&&chosenWidth()<=60000))){ProjectPackets.request(new ProjectPackets.Action("create",name,Project.WorldType.values()[type],chosenSize(),profiles[profile],backups,chosenWidth()));creating=false;name="";rebuild();}});
-   button("Retour",x+w/2+2,y+158,(w-28)/2,()->{creating=false;rebuild();});
+   button("Créer",x+12,y+158,(w-28)/2,()->{if(!name.isBlank()&&type!=3&&(sizes[size]!=-1||(chosenSize()>=16&&chosenSize()<=60000&&chosenWidth()>=16&&chosenWidth()<=60000))){ProjectPackets.request(new ProjectPackets.Action(targetCollection==null?"create":"create_catalog_project",name,Project.WorldType.values()[type],chosenSize(),targetCollection==null?profiles[profile]:targetCollection,backups,chosenWidth()));creating=false;name="";targetCollection=null;rebuild();}});
+   button("Retour",x+w/2+2,y+158,(w-28)/2,()->{creating=false;if(targetCollection!=null){catalogOpen=true;targetCollection=null;}rebuild();});
   }
  }
  @Override public void renderBackground(GuiGraphics g,int mx,int my,float delta){}
@@ -113,7 +115,7 @@ public final class ArchitectScreen extends Screen {
   g.fill(0,0,width,height,BG);
   int w=Math.min(340,width-24),x=(width-w)/2,y=height/2-105;
   g.fill(x,y,x+w,y+240,PANEL);
-  g.drawCenteredString(font,catalogOpen?(collection==null?"COLLECTIONS DE MAPS":font.plainSubstrByWidth(collection,w-24)):library?"BIBLIOTHÈQUE":selecting?"SÉLECTION DE BÂTIMENT":creating?"NOUVEAU PROJET":"WORLD ARCHITECT",width/2,y+10,ACCENT);
+  g.drawCenteredString(font,catalogOpen?(collection==null?"COLLECTIONS DE MAPS":font.plainSubstrByWidth(collection,w-24)):library?"BIBLIOTHÈQUE":selecting?"SÉLECTION DE BÂTIMENT":creating?(targetCollection==null?"NOUVEAU PROJET":font.plainSubstrByWidth("NOUVELLE MAP : "+targetCollection,w-24)):"WORLD ARCHITECT",width/2,y+10,ACCENT);
   if(catalogOpen){
    var rows=catalogRows();var response=ProjectPackets.catalog();
    for(int i=catalogPage*5;i<Math.min(rows.size(),catalogPage*5+5);i++){
