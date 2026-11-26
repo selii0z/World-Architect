@@ -53,6 +53,14 @@ public final class MapCatalog {
         Files.writeString(folder.resolve("project.json"), new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(project), StandardOpenOption.CREATE_NEW);
     }
 
+    public static Path resolveSchematic(String collection,String name) throws IOException {
+        Path parent=child(root(),collection);
+        Path source=child(parent,name);
+        if(!directory(parent)||!file(source)||!name.toLowerCase(Locale.ROOT).endsWith(".schem"))
+            throw new IOException("Sponge schematic file required");
+        return source;
+    }
+
     public static Path resolveTerrain(String collection,String name) throws IOException {
         Path parent=child(root(),collection);
         Path source=child(parent,name);
