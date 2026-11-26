@@ -20,7 +20,8 @@ public final class OverviewScreen extends Screen{
    ProjectPackets.request(new ProjectPackets.Action("overview_start",collection,null,l,map+"|"+ox+"|"+oz,false,w));local="";
   }catch(Exception e){local="Dimensions ou coordonnées invalides";}}).bounds(left,top+72,100,20).build());
   addRenderableWidget(Button.builder(Component.literal("Annuler"),b->send("overview_cancel")).bounds(left+120,top+72,100,20).build());
-  addRenderableWidget(Button.builder(Component.literal("Retour"),b->onClose()).bounds(left,top+122,220,20).build());
+  addRenderableWidget(Button.builder(Component.literal("Afficher"),b->{ProjectPackets.clearOverviewImage();send("overview_image");minecraft.setScreen(new OverviewImageScreen(this));}).bounds(left,top+122,100,20).build());
+  addRenderableWidget(Button.builder(Component.literal("Retour"),b->onClose()).bounds(left+120,top+122,100,20).build());
  }
  @Override public void tick(){super.tick();if(++ticks%20==0)send("overview_status");}
  @Override public void render(GuiGraphics g,int mx,int my,float partial){
