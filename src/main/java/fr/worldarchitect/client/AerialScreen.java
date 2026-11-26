@@ -56,9 +56,12 @@ public final class AerialScreen extends Screen {
    }
    if(t.size()==64&&t.colors().length==4096&&t.step()==step&&t.originX()==cx-32*step&&t.originZ()==cz-32*step&&t.dimension().equals(minecraft.level.dimension().location().toString())){
     for(int i=0;i<4096;i++){int c=t.colors()[i];if(c!=0){int px=x+i%64*pixel,py=y+i/64*pixel;g.fill(px,py,px+pixel,py+pixel,c);}}
+   }
+   if(t.size()==64&&t.colors().length==4096&&t.dimension().equals(minecraft.level.dimension().location().toString())){
+    int originX=cx-32*step,originZ=cz-32*step;
     if(t.length()>0&&t.width()>0){
-     int left=x+(int)Math.round((-t.length()/2.0-t.originX())/step*pixel),right=x+(int)Math.round((t.length()/2.0-t.originX())/step*pixel);
-     int top=y+(int)Math.round((-t.width()/2.0-t.originZ())/step*pixel),bottom=y+(int)Math.round((t.width()/2.0-t.originZ())/step*pixel);
+     int left=x+(int)Math.round((-t.length()/2.0-originX)/step*pixel),right=x+(int)Math.round((t.length()/2.0-originX)/step*pixel);
+     int top=y+(int)Math.round((-t.width()/2.0-originZ)/step*pixel),bottom=y+(int)Math.round((t.width()/2.0-originZ)/step*pixel);
      int l=Math.max(x,left),rgt=Math.min(x+size,right),a=Math.max(y,top),b=Math.min(y+size,bottom);
      if(l<rgt&&a<b){
       if(left>=x&&left<x+size)g.fill(left,a,left+1,b,0xffff4444);
@@ -70,14 +73,14 @@ public final class AerialScreen extends Screen {
     var markers=ProjectPackets.markers();
     if(markers!=null&&markers.success()&&t.dimension().equals(markers.dimension())){
      for(var m:markers.markers()){
-      int px=x+(int)((m.x()-t.originX())/(double)step*pixel),py=y+(int)((m.z()-t.originZ())/(double)step*pixel);
+      int px=x+(int)((m.x()-originX)/(double)step*pixel),py=y+(int)((m.z()-originZ)/(double)step*pixel);
       if(px<x||px>=x+size||py<y||py>=y+size)continue;
       int color=switch(m.color()){case GREEN->0xff52b765;case BLUE->0xff498be4;case YELLOW->0xffe5c441;case RED->0xffdb5151;case PURPLE->0xffa66bd9;default->0xffffffff;};
       g.fill(px-3,py-3,px+4,py+4,0xff111111);g.fill(px-2,py-2,px+3,py+3,color);
       if(Math.abs(mx-px)<=5&&Math.abs(my-py)<=5)g.drawString(font,m.name(),px+5,py-9,color);
      }
     }
-    if(minecraft.player!=null){int px=x+(int)((minecraft.player.getX()-t.originX())/step*pixel),py=y+(int)((minecraft.player.getZ()-t.originZ())/step*pixel);if(px>=x&&px<x+size&&py>=y&&py<y+size)g.fill(px-2,py-2,px+3,py+3,0xffffffff);}
+    if(minecraft.player!=null){int px=x+(int)((minecraft.player.getX()-originX)/step*pixel),py=y+(int)((minecraft.player.getZ()-originZ)/step*pixel);if(px>=x&&px<x+size&&py>=y&&py<y+size)g.fill(px-2,py-2,px+3,py+3,0xffffffff);}
    }
   }
   g.drawCenteredString(font,"X: "+cx+"  Z: "+cz,width/2,height-60,0xffe9eadf);
