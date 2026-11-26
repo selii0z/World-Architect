@@ -92,10 +92,12 @@ public final class ArchitectScreen extends Screen {
    button("Point A",x+12,y+30,half,()->action("select_first"));
    button("Point B",x+w/2+2,y+30,half,()->action("select_second"));
    button("Forme : "+shapeLabels[shapeIndex],x+12,y+54,w-24,()->{shapeIndex=(shapeIndex+1)%shapeLabels.length;rebuild();});
-   var target=new EditBox(font,x+12,y+88,w-24,20,Component.literal("Bloc cible"));
+   var target=new EditBox(font,x+12,y+88,w-84,20,Component.literal("Bloc cible"));
    target.setMaxLength(128);target.setValue(targetBlock);target.setResponder(v->targetBlock=v);addRenderableWidget(target);
-   var filter=new EditBox(font,x+12,y+122,w-24,20,Component.literal("Bloc à remplacer"));
+   button("Choisir",x+w-68,y+88,56,()->minecraft.setScreen(new BlockPickerScreen(this,v->targetBlock=v)));
+   var filter=new EditBox(font,x+12,y+122,w-84,20,Component.literal("Bloc à remplacer"));
    filter.setMaxLength(128);filter.setValue(filterBlock);filter.setHint(Component.literal("Vide = tous les blocs"));filter.setResponder(v->filterBlock=v);addRenderableWidget(filter);
+   button("Choisir",x+w-68,y+122,56,()->minecraft.setScreen(new BlockPickerScreen(this,v->filterBlock=v)));
    button("Appliquer",x+12,y+146,half,()->{if(!targetBlock.isBlank())ProjectPackets.request(new ProjectPackets.Action("block_edit",fr.worldarchitect.project.EditGeometry.Shape.values()[shapeIndex].name(),null,0,targetBlock.strip()+"|"+filterBlock.strip(),false));});
    button("Interrompre",x+w/2+2,y+146,half,()->action("block_cancel"));
    button("Annuler",x+12,y+170,half,()->action("block_undo"));
