@@ -84,14 +84,23 @@ public final class ProjectPackets {
   public static final StreamCodec<RegistryFriendlyByteBuf,CatalogReply> CODEC=StreamCodec.of((b,p)->b.writeUtf(p.json(),262144),b->new CatalogReply(b.readUtf(262144)));
   public Type<CatalogReply> type(){return TYPE;}
  }
- public record OverviewImage(byte[] png) implements CustomPacketPayload {
+ public record OverviewImage(int index,int total,byte[] png) implements CustomPacketPayload {
   public static final Type<OverviewImage> TYPE=new Type<>(ResourceLocation.fromNamespaceAndPath("worldarchitect","overview_image"));
-  public static final StreamCodec<RegistryFriendlyByteBuf,OverviewImage> CODEC=StreamCodec.of((b,p)->b.writeByteArray(p.png()),b->new OverviewImage(b.readByteArray(524288)));
+  public static final StreamCodec<RegistryFriendlyByteBuf,OverviewImage> CODEC=StreamCodec.of((b,p)->{b.writeVarInt(p.index());b.writeVarInt(p.total());b.writeByteArray(p.png());},b->new OverviewImage(b.readVarInt(),b.readVarInt(),b.readByteArray(131072)));
   public Type<OverviewImage> type(){return TYPE;}
  }
  private static volatile byte[] overviewImage;
  public static byte[] overviewImage(){return overviewImage;}
- public static void clearOverviewImage(){overviewImage=null;}
+ private static java.io.ByteArrayOutputStream overviewBuffer;
+ private static int overviewNext,overviewTotal;
+ public static void clearOverviewImage(){overviewImage=null;overviewBuffer=null;overviewNext=0;}
+ private static void acceptOverview(OverviewImage p){
+  if(p.total()<1||p.total()>40||p.index()<0||p.index()>=p.total()){clearOverviewImage();overviewImage=new byte[0];return;}
+  if(p.index()==0){overviewBuffer=new java.io.ByteArrayOutputStream();overviewNext=0;overviewTotal=p.total();}
+  if(overviewBuffer==null||p.index()!=overviewNext||p.total()!=overviewTotal){clearOverviewImage();overviewImage=new byte[0];return;}
+  overviewBuffer.writeBytes(p.png());overviewNext++;
+  if(overviewNext==overviewTotal){overviewImage=overviewBuffer.toByteArray();overviewBuffer=null;}
+ }
  private static final fr.worldarchitect.project.OverviewJob OVERVIEW=new fr.worldarchitect.project.OverviewJob();
  private static final java.util.concurrent.atomic.AtomicBoolean IMPORTING=new java.util.concurrent.atomic.AtomicBoolean();
  private static volatile CatalogResult catalog;
@@ -119,11 +128,11 @@ public final class ProjectPackets {
  private static volatile Result latest;
  public static Result latest(){return latest;}
  @SubscribeEvent public static void register(RegisterPayloadHandlersEvent e){
-  var r=e.registrar("14");
+  var r=e.registrar("15");
   r.playToClient(AerialReply.TYPE,AerialReply.CODEC,(p,c)->c.enqueueWork(()->aerial=GSON.fromJson(p.json(),AerialResult.class)));
   r.playToClient(MarkerReply.TYPE,MarkerReply.CODEC,(p,c)->c.enqueueWork(()->markers=GSON.fromJson(p.json(),MarkerResult.class)));
   r.playToClient(BackupReply.TYPE,BackupReply.CODEC,(p,c)->c.enqueueWork(()->backups=GSON.fromJson(p.json(),BackupResult.class)));
-  r.playToClient(OverviewImage.TYPE,OverviewImage.CODEC,(p,c)->c.enqueueWork(()->overviewImage=p.png()));
+  r.playToClient(OverviewImage.TYPE,OverviewImage.CODEC,(p,c)->c.enqueueWork(()->acceptOverview(p)));
   r.playToClient(CatalogReply.TYPE,CatalogReply.CODEC,(p,c)->c.enqueueWork(()->catalog=GSON.fromJson(p.json(),CatalogResult.class)));
   r.playToClient(GhostReply.TYPE,GhostReply.CODEC,(p,c)->c.enqueueWork(()->acceptGhost(GSON.fromJson(p.json(),GhostChunk.class))));
   r.playToServer(Request.TYPE,Request.CODEC,ProjectPackets::handle);
@@ -187,9 +196,9 @@ public final class ProjectPackets {
       byte[] data=new byte[0];
       try{
        var file=fr.worldarchitect.project.MapCatalog.resolveTerrain(a.name(),a.profile()).resolve("overview.png");
-       if(java.nio.file.Files.isRegularFile(file,java.nio.file.LinkOption.NOFOLLOW_LINKS))try(var in=java.nio.file.Files.newInputStream(file)){var bytes=in.readNBytes(524289);if(bytes.length<=524288)data=bytes;}
+       if(java.nio.file.Files.isRegularFile(file,java.nio.file.LinkOption.NOFOLLOW_LINKS))try(var in=java.nio.file.Files.newInputStream(file)){var bytes=in.readNBytes(5242881);if(bytes.length<=5242880)data=bytes;}
       }catch(Exception ex){com.mojang.logging.LogUtils.getLogger().warn("Overview image read failed",ex);}
-      var reply=new OverviewImage(data);server.execute(()->{var online=server.getPlayerList().getPlayer(id);if(online!=null&&online.hasPermissions(2))PacketDistributor.sendToPlayer(online,reply);});
+      var bytes=data;server.execute(()->{var online=server.getPlayerList().getPlayer(id);if(online!=null&&online.hasPermissions(2)){int total=Math.max(1,(bytes.length+131071)/131072);for(int i=0;i<total;i++)PacketDistributor.sendToPlayer(online,new OverviewImage(i,total,java.util.Arrays.copyOfRange(bytes,i*131072,Math.min(bytes.length,(i+1)*131072))));}});
      });return;
     }
     if("overview_start".equals(a.action())||"overview_status".equals(a.action())||"overview_cancel".equals(a.action())){
