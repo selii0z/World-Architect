@@ -34,6 +34,10 @@ public final class ProjectRegistry {
  public synchronized Project create(String name, Project.WorldType type, int size, String profile, boolean backups) throws IOException {return create(name,type,size,size,profile,backups);}
  public synchronized Project create(String name, Project.WorldType type,int size,int width,String profile,boolean backups) throws IOException {
   Project p = new Project(UUID.randomUUID(), name, type, size, profile, backups,width);
+  return register(p);
+ }
+ public synchronized Project register(Project p) throws IOException {
+  if(projects.containsKey(p.id())) throw new IllegalArgumentException("Duplicate project");
   Map<UUID, Project> next = new LinkedHashMap<>(projects);
   next.put(p.id(), p);
   persist(next);
