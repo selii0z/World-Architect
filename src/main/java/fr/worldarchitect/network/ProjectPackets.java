@@ -84,6 +84,14 @@ public final class ProjectPackets {
   public static final StreamCodec<RegistryFriendlyByteBuf,CatalogReply> CODEC=StreamCodec.of((b,p)->b.writeUtf(p.json(),262144),b->new CatalogReply(b.readUtf(262144)));
   public Type<CatalogReply> type(){return TYPE;}
  }
+ public record OverviewImage(byte[] png) implements CustomPacketPayload {
+  public static final Type<OverviewImage> TYPE=new Type<>(ResourceLocation.fromNamespaceAndPath("worldarchitect","overview_image"));
+  public static final StreamCodec<RegistryFriendlyByteBuf,OverviewImage> CODEC=StreamCodec.of((b,p)->b.writeByteArray(p.png()),b->new OverviewImage(b.readByteArray(524288)));
+  public Type<OverviewImage> type(){return TYPE;}
+ }
+ private static volatile byte[] overviewImage;
+ public static byte[] overviewImage(){return overviewImage;}
+ public static void clearOverviewImage(){overviewImage=null;}
  private static final fr.worldarchitect.project.OverviewJob OVERVIEW=new fr.worldarchitect.project.OverviewJob();
  private static final java.util.concurrent.atomic.AtomicBoolean IMPORTING=new java.util.concurrent.atomic.AtomicBoolean();
  private static volatile CatalogResult catalog;
@@ -111,10 +119,11 @@ public final class ProjectPackets {
  private static volatile Result latest;
  public static Result latest(){return latest;}
  @SubscribeEvent public static void register(RegisterPayloadHandlersEvent e){
-  var r=e.registrar("13");
+  var r=e.registrar("14");
   r.playToClient(AerialReply.TYPE,AerialReply.CODEC,(p,c)->c.enqueueWork(()->aerial=GSON.fromJson(p.json(),AerialResult.class)));
   r.playToClient(MarkerReply.TYPE,MarkerReply.CODEC,(p,c)->c.enqueueWork(()->markers=GSON.fromJson(p.json(),MarkerResult.class)));
   r.playToClient(BackupReply.TYPE,BackupReply.CODEC,(p,c)->c.enqueueWork(()->backups=GSON.fromJson(p.json(),BackupResult.class)));
+  r.playToClient(OverviewImage.TYPE,OverviewImage.CODEC,(p,c)->c.enqueueWork(()->overviewImage=p.png()));
   r.playToClient(CatalogReply.TYPE,CatalogReply.CODEC,(p,c)->c.enqueueWork(()->catalog=GSON.fromJson(p.json(),CatalogResult.class)));
   r.playToClient(GhostReply.TYPE,GhostReply.CODEC,(p,c)->c.enqueueWork(()->acceptGhost(GSON.fromJson(p.json(),GhostChunk.class))));
   r.playToServer(Request.TYPE,Request.CODEC,ProjectPackets::handle);
@@ -171,6 +180,17 @@ public final class ProjectPackets {
       if(GSON.toJson(response).length()>250000)response=new CatalogResult(true,"Structure importée ; catalogue trop volumineux",java.util.List.of());
      }catch(Exception ex){com.mojang.logging.LogUtils.getLogger().warn("Schematic import failed",ex);response=new CatalogResult(false,"Échec de l’opération de terrain de la structure",java.util.List.of());}
      PacketDistributor.sendToPlayer(player,new CatalogReply(GSON.toJson(response)));return;
+    }
+    if("overview_image".equals(a.action())){
+     var server=player.getServer();var id=player.getUUID();
+     java.util.concurrent.CompletableFuture.runAsync(()->{
+      byte[] data=new byte[0];
+      try{
+       var file=fr.worldarchitect.project.MapCatalog.resolveTerrain(a.name(),a.profile()).resolve("overview.png");
+       if(java.nio.file.Files.isRegularFile(file,java.nio.file.LinkOption.NOFOLLOW_LINKS))try(var in=java.nio.file.Files.newInputStream(file)){var bytes=in.readNBytes(524289);if(bytes.length<=524288)data=bytes;}
+      }catch(Exception ex){com.mojang.logging.LogUtils.getLogger().warn("Overview image read failed",ex);}
+      var reply=new OverviewImage(data);server.execute(()->{var online=server.getPlayerList().getPlayer(id);if(online!=null&&online.hasPermissions(2))PacketDistributor.sendToPlayer(online,reply);});
+     });return;
     }
     if("overview_start".equals(a.action())||"overview_status".equals(a.action())||"overview_cancel".equals(a.action())){
      CatalogResult response;
