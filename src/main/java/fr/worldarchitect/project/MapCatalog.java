@@ -68,6 +68,14 @@ public final class MapCatalog {
         return source;
     }
 
+    /** Duplicate a quiescent catalog terrain into a new collection entry. */
+    public static Path duplicateTerrain(String sourceCollection,String sourceName,String targetCollection,String targetName)throws IOException {
+        Path source=resolveTerrain(sourceCollection,sourceName);
+        Path parent=createCollection(targetCollection);
+        Path destination=child(parent,targetName);
+        return MapTerrain.snapshot(source,destination);
+    }
+
     public static Path importSource(String collection, String sourceName, String destinationName) throws IOException {
         Path parent = child(root(), collection);
         if (!directory(parent)) throw new IOException("Unknown collection");
