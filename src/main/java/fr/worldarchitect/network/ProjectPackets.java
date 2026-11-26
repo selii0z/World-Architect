@@ -168,6 +168,31 @@ public final class ProjectPackets {
      fr.worldarchitect.project.ProjectEdits.place(player,plan,false);
      message="Bâtiment placé";
     }
+    else if("block_edit".equals(a.action())){
+     var selection=SELECTIONS.get(player.getUUID());
+     if(selection==null||!selection.complete())throw new IllegalArgumentException("Selection incomplete");
+     var shape=fr.worldarchitect.project.EditGeometry.Shape.valueOf(a.name());
+     var registry=net.minecraft.core.registries.BuiltInRegistries.BLOCK;
+     String[] parts=a.profile().split("\\|",-1);
+     if(parts.length!=2)throw new IllegalArgumentException("Invalid block edit request");
+     var targetId=net.minecraft.resources.ResourceLocation.parse(parts[0]);
+     if(!registry.containsKey(targetId))throw new IllegalArgumentException("Unknown target block");
+     var target=registry.get(targetId).defaultBlockState();
+     net.minecraft.world.level.block.Block filter=null;
+     if(!parts[1].isBlank()){
+      var filterId=net.minecraft.resources.ResourceLocation.parse(parts[1]);
+      if(!registry.containsKey(filterId))throw new IllegalArgumentException("Unknown filter block");
+      filter=registry.get(filterId);
+     }
+     fr.worldarchitect.project.BlockEditScheduler.submit(player,selection,shape,target,filter);
+     message="Opération de construction demandée";
+    }
+    else if("block_undo".equals(a.action())||"block_redo".equals(a.action())){
+     message=fr.worldarchitect.project.BlockEditScheduler.replay(player,"block_undo".equals(a.action()))?"Opération demandée":"Aucune modification disponible";
+    }
+    else if("block_cancel".equals(a.action())){
+     message=fr.worldarchitect.project.BlockEditScheduler.cancel(player)?"Annulation demandée":"Aucune opération active";
+    }
     else if("undo_edit".equals(a.action())){
      message=fr.worldarchitect.project.ProjectEdits.undo(player)?"Modification annulée":"Aucune modification à annuler";
     }
