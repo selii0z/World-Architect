@@ -7,8 +7,9 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 public final class OverviewImageScreen extends Screen{
- private final Screen parent;private ResourceLocation texture;private int iw,ih;private double zoom=1,dx,dz;private boolean attempted;private int originX,originZ,step;private String error="";
- public OverviewImageScreen(Screen parent){super(Component.literal("Carte aérienne"));this.parent=parent;}
+ private final Screen parent;private final boolean activeProject;private ResourceLocation texture;private int iw,ih;private double zoom=1,dx,dz;private boolean attempted;private int originX,originZ,step;private String error="";
+ public OverviewImageScreen(Screen parent){this(parent,false);}
+ public OverviewImageScreen(Screen parent,boolean activeProject){super(Component.literal("Carte aérienne"));this.parent=parent;this.activeProject=activeProject;if(activeProject)ProjectPackets.refreshMarkers();}
  @Override public void tick(){
   if(attempted)return;byte[] bytes=ProjectPackets.overviewImage();if(bytes==null)return;attempted=true;
   if(bytes.length==0){error="Carte absente ou trop volumineuse";return;}
