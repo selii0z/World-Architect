@@ -69,6 +69,34 @@ public final class StructureLibrary {
   template.load(level.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.BLOCK),data);
   return template;
  }
+ public static UUID importSchematic(ServerLevel level, Path source, String name, String category) throws IOException {
+  if(!level.getServer().isSameThread())throw new IllegalStateException("Server thread required");
+  if(name==null||name.isBlank()||name.length()>80||category==null||category.isBlank()||category.length()>60)throw new IllegalArgumentException("Invalid metadata");
+  if(!Files.isRegularFile(source,LinkOption.NOFOLLOW_LINKS))throw new IOException("Invalid schematic source");
+  CompoundTag data=SpongeSchematic.read(source);
+  var lookup=level.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.BLOCK);
+  var palette=data.getList("palette",10);
+  for(int i=0;i<palette.size();i++){
+   var tag=palette.getCompound(i);
+   var state=net.minecraft.nbt.NbtUtils.readBlockState(lookup,tag);
+   if(!net.minecraft.nbt.NbtUtils.writeBlockState(state).equals(tag))throw new IOException("Unavailable or incompatible block state: "+tag.getString("Name"));
+  }
+  CompoundTag root=new CompoundTag();
+  root.putInt("schema",1);
+  root.putString("name",name.strip());
+  root.putString("category",category.strip());
+  root.put("structure",data);
+  Path dir=directory(level);
+  Files.createDirectories(dir);
+  UUID id=UUID.randomUUID();
+  Path tmp=Files.createTempFile(dir,"import-",".tmp");
+  try{
+   NbtIo.writeCompressed(root,tmp);
+   try(FileChannel channel=FileChannel.open(tmp,StandardOpenOption.WRITE)){channel.force(true);}
+   Files.move(tmp,dir.resolve(id+".nbt"),StandardCopyOption.ATOMIC_MOVE);
+  }finally{Files.deleteIfExists(tmp);}
+  return id;
+ }
  public static UUID capture(ServerLevel level, StructureSelection.Selection selection,String name,String category) throws IOException {
   if(!level.getServer().isSameThread())throw new IllegalStateException("Server thread required");
   if(!selection.dimension().equals(level.dimension()))throw new IllegalArgumentException("Wrong dimension");
