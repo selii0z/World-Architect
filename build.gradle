@@ -4,8 +4,3 @@ group = 'fr.worldarchitect'
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 neoForge { version = '21.1.249'; runs { client { client() }; server { server() } }; mods { worldarchitect { sourceSet sourceSets.main } } }
 
-repositories { maven { url = 'https://repo.terradevelopment.net/repository/maven-releases' } }
-dependencies {
-    implementation('dev.galacticraft:dynamicdimensions-neoforge:0.10.0')
-    jarJar('dev.galacticraft:dynamicdimensions-neoforge:0.10.0')
-}
