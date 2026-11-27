@@ -10,7 +10,7 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Callable;
 import net.minecraft.Util;
-import net.minecraft.core.RegistryOps;
+import net.minecraft.resources.RegistryOps;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -121,7 +121,7 @@ public final class RuntimeDimensionBackend implements DimensionBackend {
    if(Files.exists(entry.prepared(),LinkOption.NOFOLLOW_LINKS))throw new BusyException("Prepared path already exists; no files changed");
    entry.level().save(null,true,false);
    NeoForge.EVENT_BUS.post(new LevelEvent.Unload(entry.level()));
-   if(!entry.level().players().isEmpty())throw new BusyException("Players entered during unload");
+   if(!entry.level().players().isEmpty())throw new IllegalStateException("Players entered during unload; terrain retained");
    server.forgeGetWorldMap().remove(key(id),entry.level());
    server.markWorldsDirty();
    entry.level().close();
