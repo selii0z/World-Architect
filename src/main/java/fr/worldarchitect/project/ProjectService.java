@@ -72,7 +72,9 @@ public final class ProjectService {
    } catch(IOException e){throw new java.util.concurrent.CompletionException(e);}
   }).thenCompose(ignored->server.submit(()->{
    if(REGISTRIES.get(server)!=registry)throw new IllegalStateException("Server registry changed");
-   try { ProjectDatapack.stage(server,project);return registry.register(project); }
+   try { ProjectDatapack.stage(server,project);var registered=registry.register(project);
+    fr.worldarchitect.api.RuntimeDimensionBackend.scheduleProject(server,registered);
+    return registered; }
    catch(IOException e){throw new java.util.concurrent.CompletionException(e);}
   }));
  }
@@ -81,6 +83,7 @@ public final class ProjectService {
   if (type == Project.WorldType.IMPORTED) throw new IllegalArgumentException("Import not implemented");
   Project project = authorized(player).create(name,type,size,width,profile,backups);
   ProjectDatapack.stage(player.getServer(), project);
+  fr.worldarchitect.api.RuntimeDimensionBackend.scheduleProject(player.getServer(),project);
   return project;
  }
 }

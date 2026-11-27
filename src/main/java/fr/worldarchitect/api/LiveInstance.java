@@ -47,7 +47,11 @@ public final class LiveInstance {
         state = State.CLOSING;
         try {
             return backend.close(server, id).whenComplete((ignored, error) -> {
-                synchronized (this) { state = error == null ? State.CLOSED : State.FAILED; }
+                synchronized (this) {
+                    Throwable cause=error;
+                    while(cause instanceof java.util.concurrent.CompletionException&&cause.getCause()!=null)cause=cause.getCause();
+                    state = error == null ? State.CLOSED : cause instanceof DimensionBackend.BusyException ? State.ACTIVE : State.FAILED;
+                }
             });
         } catch (RuntimeException e) {
             state = State.FAILED;

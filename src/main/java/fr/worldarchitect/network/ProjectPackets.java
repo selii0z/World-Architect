@@ -376,7 +376,7 @@ public final class ProjectPackets {
          var projects=ProjectService.list(online);
          var ready=new java.util.HashSet<java.util.UUID>();
          for(var p:projects)if(ProjectService.isReady(online,p.id()))ready.add(p.id());
-         PacketDistributor.sendToPlayer(online,new Reply(GSON.toJson(new Result(error==null,error==null?"Map préparée ; redémarrage nécessaire":"Échec de l’activation",projects,ready))));
+         PacketDistributor.sendToPlayer(online,new Reply(GSON.toJson(new Result(error==null,error==null?(fr.worldarchitect.api.RuntimeDimensionBackend.enabled(server)?"Map préparée ; chargement à chaud demandé":"Map préparée ; redémarrage nécessaire"):"Échec de l’activation",projects,ready))));
         }
        });
       });
@@ -387,11 +387,11 @@ public final class ProjectPackets {
      var folder=fr.worldarchitect.project.MapCatalog.reserveMap(a.profile(),a.name());
      var project=ProjectService.create(player,a.name(),a.worldType(),a.size(),a.width(),"worldarchitect:generic",a.automaticBackups());
      fr.worldarchitect.project.MapCatalog.linkProject(folder,project);
-     message="Projet créé dans la collection ; redémarrage nécessaire";
+     message=fr.worldarchitect.api.RuntimeDimensionBackend.enabled(player.getServer())?"Projet créé ; chargement à chaud demandé":"Projet créé dans la collection ; redémarrage nécessaire";
     }
     else if("create".equals(a.action())) {
       ProjectService.create(player,a.name(),a.worldType(),a.size(),a.width(),a.profile(),a.automaticBackups());
-      message="Projet enregistré ; chargement après redémarrage";
+      message=fr.worldarchitect.api.RuntimeDimensionBackend.enabled(player.getServer())?"Projet enregistré ; chargement à chaud demandé":"Projet enregistré ; chargement après redémarrage";
      }
      else if("save_project".equals(a.action())) {
       var project=ProjectService.requireProject(player,java.util.UUID.fromString(a.name()));

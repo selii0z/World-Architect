@@ -6,7 +6,7 @@ import java.io.IOException;
 public final class DimensionDefinitions {
  private static final Gson GSON=new GsonBuilder().setPrettyPrinting().create();
  private DimensionDefinitions(){}
- public static void stage(Project project, Path pack) throws IOException {
+ public static JsonObject definition(Project project) {
 
   JsonObject root=new JsonObject();
   root.addProperty("type","minecraft:overworld");
@@ -32,6 +32,10 @@ public final class DimensionDefinitions {
    settings.add("layers",layers);generator.add("settings",settings);
   }
   root.add("generator",generator);
+  return root;
+ }
+ public static void stage(Project project, Path pack) throws IOException {
+  JsonObject root=definition(project);
   Path directory=pack.resolve("data/worldarchitect/dimension");
   Files.createDirectories(directory);
   Path target=directory.resolve(project.dimensionId().substring("worldarchitect:".length())+".json");

@@ -8,6 +8,10 @@ import net.minecraft.server.level.ServerLevel;
 
 /** Backend contract only; implementations must manage Minecraft level registration and shutdown. */
 public interface DimensionBackend {
+    /** A close refusal with no storage or registration changes; may be retried. */
+    final class BusyException extends IllegalStateException {
+        public BusyException(String message){super(message);}
+    }
     boolean supported(MinecraftServer server);
 
     /** Complete only after the level is registered and ready for players. */

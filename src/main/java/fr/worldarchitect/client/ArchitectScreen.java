@@ -131,9 +131,9 @@ public final class ArchitectScreen extends Screen {
    button("+ Créer un nouveau projet",x+12,y+144,w-24,()->{targetCollection=null;creating=true;rebuild();});
    button("<",x+12,y+118,30,()->page=Math.max(0,page-1));
    button(">",x+w-42,y+118,30,()->{var r=ProjectPackets.latest();if(r!=null&&(page+1)*4<r.projects().size())page++;});
-   button("Visiter",x+12,y+168,(w-28)/2,()->{var r=ProjectPackets.latest();if(selected==null){notice="Sélectionnez un projet dans la liste";}else if(r==null||r.ready()==null||!r.ready().contains(selected)){notice="Redémarrez le monde ou le serveur pour charger le projet";}else{notice="";action("visit");}});
+   button("Visiter",x+12,y+168,(w-28)/2,()->{var r=ProjectPackets.latest();if(selected==null){notice="Sélectionnez un projet dans la liste";}else if(r==null||r.ready()==null||!r.ready().contains(selected)){notice="Projet non chargé : actualisez la liste ou redémarrez";}else{notice="";action("visit");}});
    button("Quitter le projet",x+48,y+118,w-96,()->{notice="";action("leave");});
-   button("Construire",x+w/2+2,y+168,(w-28)/2,()->{var r=ProjectPackets.latest();if(selected==null){notice="Sélectionnez un projet";}else if(r==null||r.ready()==null||!r.ready().contains(selected)){notice="Redémarrage requis pour charger le projet";}else{notice="";action("enter_construction");}});
+   button("Construire",x+w/2+2,y+168,(w-28)/2,()->{var r=ProjectPackets.latest();if(selected==null){notice="Sélectionnez un projet";}else if(r==null||r.ready()==null||!r.ready().contains(selected)){notice="Projet non chargé : actualisez la liste ou redémarrez";}else{notice="";action("enter_construction");}});
    button("Sélection",x+12,y+192,(w-28)/2,()->{selecting=true;rebuild();});
    button("Bibliothèque",x+w/2+2,y+192,(w-28)/2,()->{library=true;libraryPage=0;rebuild();action("library");});
    button("Collections de maps",x+12,y+216,(w-28)/2,()->{catalogOpen=true;collection=null;importSource=null;catalogPage=0;rebuild();ProjectPackets.refreshCatalog();});

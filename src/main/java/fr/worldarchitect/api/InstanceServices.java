@@ -46,6 +46,7 @@ public final class InstanceServices {
             return thread;
         });
         SERVICES.put(server, new Service(new InstanceManager(server.getWorldPath(LevelResource.ROOT), executor), executor));
+        if(RuntimeDimensionBackend.ENABLED)registerBackend(server,new RuntimeDimensionBackend(server));
     }
 
     public static synchronized InstanceManager get(MinecraftServer server) {
@@ -54,8 +55,12 @@ public final class InstanceServices {
         return service.manager();
     }
 
+    @SubscribeEvent public static void tick(net.neoforged.neoforge.event.tick.ServerTickEvent.Post event){
+        backend(event.getServer()).ifPresent(b->{if(b instanceof RuntimeDimensionBackend runtime)runtime.drain();});
+    }
     @SubscribeEvent public static synchronized void stop(ServerStoppingEvent event) {
-        BACKENDS.remove(event.getServer());
+        var backend=BACKENDS.remove(event.getServer());
+        if(backend instanceof RuntimeDimensionBackend runtime)runtime.stop();
         var service = SERVICES.remove(event.getServer());
         if (service != null) service.executor().shutdown();
     }
