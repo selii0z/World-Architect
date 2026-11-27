@@ -29,7 +29,7 @@ import net.neoforged.neoforge.event.level.LevelEvent;
 
 /** Experimental native runtime levels. All map mutations run after server ticks. */
 public final class RuntimeDimensionBackend implements DimensionBackend {
- public static final boolean ENABLED=Boolean.getBoolean("worldarchitect.experimentalDynamicDimensions");
+ public static final boolean ENABLED=Boolean.parseBoolean(System.getProperty("worldarchitect.experimentalDynamicDimensions","true"));
  private final MinecraftServer server;
  private record Pending<T>(Callable<T> work,CompletableFuture<T> result){
   void run(){try{result.complete(work.call());}catch(Exception ex){result.completeExceptionally(ex);}}
