@@ -60,6 +60,10 @@ public final class RuntimeDimensionBackend implements DimensionBackend {
   while(!queue.isEmpty())queue.removeFirst().result().completeExceptionally(new IllegalStateException("Server stopping"));
   // Vanilla closes still-registered levels. Their terrain remains in dimensions/ for recovery.
   if(!instances.isEmpty())com.mojang.logging.LogUtils.getLogger().warn("World Architect: {} instances retained in dimensions/worldarchitect after shutdown",instances.size());
+  for(var entry:instances.entrySet()){
+   try{entry.getValue().level().save(null,true,false);}
+   catch(Exception ex){com.mojang.logging.LogUtils.getLogger().error("Final instance save failed; terrain retained: {}",entry.getKey(),ex);}
+  }
  }
  public static void scheduleProject(MinecraftServer server,Project project){
   InstanceServices.backend(server).filter(b->b instanceof RuntimeDimensionBackend).ifPresent(b->{
