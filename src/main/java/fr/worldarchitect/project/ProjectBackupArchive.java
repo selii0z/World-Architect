@@ -7,6 +7,8 @@ import java.util.UUID;
 import java.util.Comparator;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+import java.util.zip.ZipFile;
+import java.util.zip.CRC32;
 
 final class ProjectBackupArchive {
  private ProjectBackupArchive(){}
@@ -36,9 +38,27 @@ final class ProjectBackupArchive {
     }
    }
    try(var channel=FileChannel.open(tmp,StandardOpenOption.WRITE)){channel.force(true);}
+   verify(tmp);
    Files.move(tmp,target,StandardCopyOption.ATOMIC_MOVE);
   }finally{Files.deleteIfExists(tmp);}
   return target;
+ }
+ static void verify(Path archive) throws IOException {
+  try(var zip=new ZipFile(archive.toFile())){
+   var entries=zip.entries();
+   var names=new java.util.HashSet<String>();
+   byte[] buffer=new byte[65536];
+   while(entries.hasMoreElements()){
+    var entry=entries.nextElement();
+    if(!names.add(entry.getName()))throw new IOException("Duplicate backup entry");
+    var crc=new CRC32();
+    long size=0;
+    try(var in=zip.getInputStream(entry)){
+     for(int n;(n=in.read(buffer))!=-1;){crc.update(buffer,0,n);size+=n;}
+    }
+    if(size!=entry.getSize()||crc.getValue()!=entry.getCrc())throw new IOException("Corrupt backup entry: "+entry.getName());
+   }
+  }
  }
  static void pruneAutomatic(Path backupRoot,UUID project) throws IOException {
   Path dir=backupRoot.resolve(project.toString());
