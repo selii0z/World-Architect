@@ -27,6 +27,33 @@ public final class InstanceCommands {
       }));
      return 1;
     }))))
+   .then(Commands.literal("enter").then(Commands.argument("id",StringArgumentType.word()).executes(c->{
+    var s=c.getSource();var server=s.getServer();var player=s.getPlayerOrException();UUID id;
+    try{id=UUID.fromString(StringArgumentType.getString(c,"id"));}
+    catch(IllegalArgumentException ex){s.sendFailure(Component.literal("Invalid instance UUID"));return 0;}
+    if(InstanceServices.get(server).state(id).orElse(null)!=LiveInstance.State.ACTIVE){
+     s.sendFailure(Component.literal("Instance is not active"));return 0;
+    }
+    var key=net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION,
+     net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("worldarchitect","instance_"+id.toString().replace("-","")));
+    var level=server.getLevel(key);
+    if(level==null){s.sendFailure(Component.literal("Instance level missing"));return 0;}
+    var pos=level.getSharedSpawnPos();
+    int y=level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,pos.getX(),pos.getZ());
+    player.teleportTo(level,pos.getX()+0.5,y,pos.getZ()+0.5,player.getYRot(),player.getXRot());
+    return 1;
+   })))
+   .then(Commands.literal("leave").executes(c->{
+    var s=c.getSource();var player=s.getPlayerOrException();
+    var key=player.serverLevel().dimension().location();
+    if(!key.getNamespace().equals("worldarchitect")||!key.getPath().startsWith("instance_")){
+     s.sendFailure(Component.literal("Not in an instance"));return 0;
+    }
+    var level=s.getServer().overworld();var pos=level.getSharedSpawnPos();
+    int y=level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,pos.getX(),pos.getZ());
+    player.teleportTo(level,pos.getX()+0.5,y,pos.getZ()+0.5,player.getYRot(),player.getXRot());
+    return 1;
+   }))
    .then(Commands.literal("destroy").then(Commands.argument("id",StringArgumentType.word()).executes(c->{
     var s=c.getSource();var server=s.getServer();UUID id;
     try{id=UUID.fromString(StringArgumentType.getString(c,"id"));}
