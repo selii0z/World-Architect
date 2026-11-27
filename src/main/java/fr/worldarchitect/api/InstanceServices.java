@@ -35,6 +35,25 @@ public final class InstanceServices {
         return backend.isPresent() ? get(server).close(server,id,backend.get()) :
             java.util.concurrent.CompletableFuture.failedFuture(new IllegalStateException("No runtime dimension backend installed"));
     }
+    /** Prepare and mount an independent map copy; completion means the level is registered. */
+    public static java.util.concurrent.CompletableFuture<net.minecraft.server.level.ServerLevel> createInstance(
+            MinecraftServer server, String collection, String map) {
+        var backend = backend(server);
+        if (backend.isEmpty()) return java.util.concurrent.CompletableFuture.failedFuture(
+                new IllegalStateException("No runtime dimension backend installed"));
+        var manager = get(server);
+        return manager.prepare(collection, map).thenCompose(id -> manager.open(server, id, backend.get()));
+    }
+
+    /** Close an empty instance before deleting its private terrain. */
+    public static java.util.concurrent.CompletableFuture<Boolean> destroyInstance(MinecraftServer server, java.util.UUID id) {
+        var backend = backend(server);
+        if (backend.isEmpty()) return java.util.concurrent.CompletableFuture.failedFuture(
+                new IllegalStateException("No runtime dimension backend installed"));
+        var manager = get(server);
+        return manager.close(server, id, backend.get()).thenCompose(ignored -> manager.discard(id));
+    }
+
     private static final Map<MinecraftServer, Service> SERVICES = new IdentityHashMap<>();
     private InstanceServices() {}
 
