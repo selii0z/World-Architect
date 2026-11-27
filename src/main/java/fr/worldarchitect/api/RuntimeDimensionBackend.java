@@ -124,6 +124,8 @@ public final class RuntimeDimensionBackend implements DimensionBackend {
    if(!entry.level().players().isEmpty())throw new IllegalStateException("Players entered during unload; terrain retained");
    server.forgeGetWorldMap().remove(key(id),entry.level());
    server.markWorldsDirty();
+   for(var player:server.getPlayerList().getPlayers())
+    server.getCommands().sendCommands(player);
    entry.level().close();
    Files.move(entry.mounted(),entry.prepared(),StandardCopyOption.ATOMIC_MOVE);
    instances.remove(id);return null;
@@ -147,6 +149,11 @@ public final class RuntimeDimensionBackend implements DimensionBackend {
     },false,BiomeManager.obfuscateSeed(server.overworld().getSeed()),List.of(),false,null);
   server.forgeGetWorldMap().put(key,level);
   server.markWorldsDirty();
+  // Respawn packets carry the destination dimension key and its registered dimension type.
+  // Existing connections can receive the new level without a registry reload; the
+  // client command tree also needs refreshing for dimension argument suggestions.
+  for(var player:server.getPlayerList().getPlayers())
+   server.getCommands().sendCommands(player);
   NeoForge.EVENT_BUS.post(new LevelEvent.Load(level));
   return level;
  }
