@@ -14,6 +14,27 @@ import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 @EventBusSubscriber(modid="worldarchitect")
 public final class InstanceServices {
     private record Service(InstanceManager manager, ExecutorService executor) {}
+    private static final Map<MinecraftServer, DimensionBackend> BACKENDS = new IdentityHashMap<>();
+    /** Register a runtime implementation once, from the server thread. */
+    public static synchronized void registerBackend(MinecraftServer server, DimensionBackend backend) {
+        if (!server.isSameThread()) throw new IllegalStateException("Server thread required");
+        java.util.Objects.requireNonNull(backend);
+        if (!backend.supported(server)) throw new IllegalArgumentException("Unsupported dimension backend");
+        if (BACKENDS.putIfAbsent(server, backend) != null) throw new IllegalStateException("Dimension backend already registered");
+    }
+    public static synchronized java.util.Optional<DimensionBackend> backend(MinecraftServer server) {
+        return java.util.Optional.ofNullable(BACKENDS.get(server));
+    }
+    public static java.util.concurrent.CompletableFuture<net.minecraft.server.level.ServerLevel> open(MinecraftServer server, java.util.UUID id) {
+        var backend = backend(server);
+        return backend.isPresent() ? get(server).open(server,id,backend.get()) :
+            java.util.concurrent.CompletableFuture.failedFuture(new IllegalStateException("No runtime dimension backend installed"));
+    }
+    public static java.util.concurrent.CompletableFuture<Void> close(MinecraftServer server, java.util.UUID id) {
+        var backend = backend(server);
+        return backend.isPresent() ? get(server).close(server,id,backend.get()) :
+            java.util.concurrent.CompletableFuture.failedFuture(new IllegalStateException("No runtime dimension backend installed"));
+    }
     private static final Map<MinecraftServer, Service> SERVICES = new IdentityHashMap<>();
     private InstanceServices() {}
 
@@ -34,6 +55,7 @@ public final class InstanceServices {
     }
 
     @SubscribeEvent public static synchronized void stop(ServerStoppingEvent event) {
+        BACKENDS.remove(event.getServer());
         var service = SERVICES.remove(event.getServer());
         if (service != null) service.executor().shutdown();
     }

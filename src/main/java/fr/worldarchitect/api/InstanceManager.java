@@ -5,7 +5,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
 
-/** Manages offline copies only. Live dimensions must use a separate lifecycle. */
+/** Stages offline copies and delegates live operations to a registered runtime backend. */
 public final class InstanceManager {
     private final Path worldRoot;
     private final Executor executor;
@@ -45,7 +45,8 @@ public final class InstanceManager {
 
     public synchronized CompletableFuture<Boolean> discard(UUID id) {
         var instance = prepared.get(id);
-        if (instance == null || !live.get(id).canDiscard() || !deleting.add(id))
+        var lifecycle = live.get(id);
+        if (instance == null || lifecycle == null || !lifecycle.canDiscard() || !deleting.add(id))
             return CompletableFuture.completedFuture(false);
         try {
             return CompletableFuture.supplyAsync(() -> {

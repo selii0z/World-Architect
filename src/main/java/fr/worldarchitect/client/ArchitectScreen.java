@@ -28,6 +28,13 @@ public final class ArchitectScreen extends Screen {
   return r.collections().stream().filter(v->v.name().equals(collection)).findFirst().map(v->v.maps().stream().map(m->m.name()+" | "+m.format()).toList()).orElse(java.util.List.of());
  }
  private String notice="";
+ private int scroll=0;
+ private int panelY(){return Math.max(4,(height-308)/2)-Math.min(scroll,Math.max(0,316-height));}
+ @Override public boolean mouseScrolled(double mx,double my,double horizontal,double vertical){
+  int next=Math.max(0,Math.min(Math.max(0,316-height),scroll+(int)(-vertical*24)));
+  if(next!=scroll){scroll=next;rebuild();return true;}
+  return super.mouseScrolled(mx,my,horizontal,vertical);
+ }
  private String librarySearch="";
  private int libraryPage=0, rotation=0;
  private boolean mirrored=false;
@@ -52,12 +59,12 @@ public final class ArchitectScreen extends Screen {
  private final String[] profiles={"worldarchitect:generic"};
  private final String[] labels={"Construction libre"};
  private final String[] types={"Naturel","Plat","Vide","Importé"};
- public ArchitectScreen(){super(Component.literal("World Architect"));}
+ public ArchitectScreen(){super(Component.literal("World Architect"));refresh();}
  private void refresh(){ProjectPackets.request(new ProjectPackets.Action("list",null,null,0,null,false));}
  private void rebuild(){clearWidgets();init();}
  private void button(String label,int x,int y,int w,Runnable action){addRenderableWidget(Button.builder(Component.literal(label),b->action.run()).bounds(x,y,w,20).build());}
  @Override protected void init(){
-  int w=Math.min(340,width-24),x=(width-w)/2,y=height/2-105;
+  int w=Math.min(340,width-24),x=(width-w)/2,y=panelY();
   if(catalogOpen){
    button("<",x+12,y+144,30,()->catalogPage=Math.max(0,catalogPage-1));
    button(">",x+w-42,y+144,30,()->{if((catalogPage+1)*5<catalogRows().size())catalogPage++;});
@@ -78,7 +85,7 @@ public final class ArchitectScreen extends Screen {
     button("Carte aérienne",x+w/2+2,y+240,(w-28)/2,()->minecraft.setScreen(new OverviewScreen(this,collection,importSource)));
     button("Exporter ZIP",x+w/2+2,y+216,(w-28)/2,()->{ProjectPackets.request(new ProjectPackets.Action("export_map",collection,null,0,importSource,false));importSource=null;rebuild();});
     button("Dupliquer",x+12,y+216,(w-28)/2,()->minecraft.setScreen(new DuplicateMapScreen(this,collection,importSource,importName)));
-    button("Activer la map",x+12,y+192,(w-28)/2,()->{ProjectPackets.request(new ProjectPackets.Action("activate_map",importSource,null,0,collection,false));notice="Activation demandée";catalogOpen=false;importSource=null;rebuild();});
+    button("Activer la map",x+12,y+192,(w-28)/2,()->{ProjectPackets.request(new ProjectPackets.Action("activate_map",importSource,null,0,collection,false));notice="";catalogOpen=false;importSource=null;rebuild();});
    }
    button("Retour",importSource==null?x+12:x+w/2+2,y+192,importSource==null?w-24:(w-28)/2,()->{if(importSource!=null){importSource=null;}else if(collection!=null){collection=null;catalogPage=0;}else catalogOpen=false;rebuild();});
   }else if(library){
@@ -124,16 +131,17 @@ public final class ArchitectScreen extends Screen {
    button("+ Créer un nouveau projet",x+12,y+144,w-24,()->{targetCollection=null;creating=true;rebuild();});
    button("<",x+12,y+118,30,()->page=Math.max(0,page-1));
    button(">",x+w-42,y+118,30,()->{var r=ProjectPackets.latest();if(r!=null&&(page+1)*4<r.projects().size())page++;});
-   button("Visiter",x+12,y+168,(w-28)/2,()->{var r=ProjectPackets.latest();if(selected==null){notice="Sélectionnez un projet dans la liste";}else if(r==null||r.ready()==null||!r.ready().contains(selected)){notice="Redémarrez le monde ou le serveur pour charger le projet";}else{notice="Connexion au projet...";action("visit");}});
-   button("Quitter le projet",x+48,y+118,w-96,()->action("leave"));
-   button("Construire",x+w/2+2,y+168,(w-28)/2,()->{var r=ProjectPackets.latest();if(selected==null){notice="Sélectionnez un projet";}else if(r==null||r.ready()==null||!r.ready().contains(selected)){notice="Redémarrage requis pour charger le projet";}else{notice="Entrée en construction expérimentale...";action("enter_construction");}});
+   button("Visiter",x+12,y+168,(w-28)/2,()->{var r=ProjectPackets.latest();if(selected==null){notice="Sélectionnez un projet dans la liste";}else if(r==null||r.ready()==null||!r.ready().contains(selected)){notice="Redémarrez le monde ou le serveur pour charger le projet";}else{notice="";action("visit");}});
+   button("Quitter le projet",x+48,y+118,w-96,()->{notice="";action("leave");});
+   button("Construire",x+w/2+2,y+168,(w-28)/2,()->{var r=ProjectPackets.latest();if(selected==null){notice="Sélectionnez un projet";}else if(r==null||r.ready()==null||!r.ready().contains(selected)){notice="Redémarrage requis pour charger le projet";}else{notice="";action("enter_construction");}});
    button("Sélection",x+12,y+192,(w-28)/2,()->{selecting=true;rebuild();});
    button("Bibliothèque",x+w/2+2,y+192,(w-28)/2,()->{library=true;libraryPage=0;rebuild();action("library");});
    button("Collections de maps",x+12,y+216,(w-28)/2,()->{catalogOpen=true;collection=null;importSource=null;catalogPage=0;rebuild();ProjectPackets.refreshCatalog();});
    button("Outils",x+w/2+2,y+216,(w-28)/2,()->{toolsOpen=true;rebuild();});
    button("Carte aérienne",x+w/2+2,y+240,(w-28)/2,()->minecraft.setScreen(new AerialScreen(this)));
    button("Marqueurs",x+12,y+240,(w-28)/2,()->{ProjectPackets.refreshMarkers();minecraft.setScreen(new MarkerScreen(this));});
-   refresh();
+   button("Actualiser",x+12,y+264,(w-28)/2,()->{notice="";refresh();});
+   button("Sauver terrain",x+w/2+2,y+264,(w-28)/2,()->{if(selected==null){notice="Sélectionnez un projet";return;}notice="";action("save_project");});
   }else{
    nameBox=new EditBox(font,x+12,y+34,w-24,20,Component.literal("Nom du projet"));
    nameBox.setMaxLength(80);nameBox.setValue(name);nameBox.setResponder(v->name=v);addRenderableWidget(nameBox);
@@ -153,8 +161,8 @@ public final class ArchitectScreen extends Screen {
  @Override public void renderBackground(GuiGraphics g,int mx,int my,float delta){}
  @Override public void render(GuiGraphics g,int mx,int my,float delta){
   g.fill(0,0,width,height,BG);
-  int w=Math.min(340,width-24),x=(width-w)/2,y=height/2-105;
-  g.fill(x,y,x+w,y+240,PANEL);
+  int w=Math.min(340,width-24),x=(width-w)/2,y=panelY();
+  g.fill(x,y,x+w,y+308,PANEL);
   g.drawCenteredString(font,catalogOpen?(collection==null?"COLLECTIONS DE MAPS":font.plainSubstrByWidth(collection,w-24)):library?"BIBLIOTHÈQUE":toolsOpen?"OUTILS DE CONSTRUCTION":selecting?"SÉLECTION DE BÂTIMENT":creating?(targetCollection==null?"NOUVEAU PROJET":font.plainSubstrByWidth("NOUVELLE MAP : "+targetCollection,w-24)):"WORLD ARCHITECT",width/2,y+10,ACCENT);
   if(catalogOpen){
    var rows=catalogRows();var response=ProjectPackets.catalog();
@@ -187,7 +195,6 @@ public final class ArchitectScreen extends Screen {
   }else if(!creating){
    var r=ProjectPackets.latest();
    if(r==null)g.drawCenteredString(font,"Chargement...",width/2,y+48,TEXT);
-   else if(!r.success())g.drawCenteredString(font,r.message(),width/2,y+48,TEXT);
    else if(r.projects().isEmpty())g.drawCenteredString(font,"Aucun projet",width/2,y+48,TEXT);
    else for(int i=page*4;i<Math.min(page*4+4,r.projects().size());i++){
     var p=r.projects().get(i);int yy=y+30+(i-page*4)*21;
@@ -201,12 +208,16 @@ public final class ArchitectScreen extends Screen {
   }else if(type==3)g.drawCenteredString(font,"Importation indisponible pour le moment",width/2,y+184,TEXT);
   else if(sizes[size]==-1)g.drawCenteredString(font,"Longueur X / Largeur Z : 16 à 60 000 blocs",width/2,y+184,TEXT);
   else g.drawCenteredString(font,"Création des paramètres uniquement",width/2,y+184,TEXT);
-  if(!catalogOpen&&!creating&&!selecting&&!library&&!toolsOpen&&!notice.isEmpty())g.drawCenteredString(font,font.plainSubstrByWidth(notice,w-24),width/2,y+264,0xffdfc17b);
+  if(!catalogOpen&&!creating&&!selecting&&!library&&!toolsOpen){
+   var reply=ProjectPackets.latest();
+   String status=!notice.isEmpty()?notice:reply==null?"Chargement...":reply.message();
+   g.drawCenteredString(font,font.plainSubstrByWidth(status,w-24),width/2,y+292,reply!=null&&!reply.success()?0xffdf8b80:TEXT);
+  }
   super.render(g,mx,my,delta);
  }
  @Override public boolean mouseClicked(double mx,double my,int button){
   if(catalogOpen){
-   int w=Math.min(340,width-24),x=(width-w)/2,y=height/2-105;
+   int w=Math.min(340,width-24),x=(width-w)/2,y=panelY();
    if(button==0&&mx>=x+12&&mx<x+w-12&&my>=y+30&&my<y+140){
     int i=catalogPage*5+(int)((my-y-30)/22);var rows=catalogRows();
     if(i<rows.size()){
@@ -218,7 +229,7 @@ public final class ArchitectScreen extends Screen {
    return super.mouseClicked(mx,my,button);
   }
   if(library&&button==0){
-   int w=Math.min(340,width-24),x=(width-w)/2,y=height/2-105;
+   int w=Math.min(340,width-24),x=(width-w)/2,y=panelY();
    if(mx>=x+12&&mx<x+w-12&&my>=y+54&&my<y+154){
     int i=libraryPage*4+(int)((my-y-54)/25);
     var entries=filtered();
@@ -226,9 +237,9 @@ public final class ArchitectScreen extends Screen {
    }
   }
   if(!creating&&!selecting&&!library&&!toolsOpen&&button==0){
-   int w=Math.min(340,width-24),x=(width-w)/2,y=height/2-105;
+   int w=Math.min(340,width-24),x=(width-w)/2,y=panelY();
    var r=ProjectPackets.latest();
-   if(r!=null&&r.success()&&mx>=x+12&&mx<x+w-12&&my>=y+30&&my<y+114){
+   if(r!=null&&mx>=x+12&&mx<x+w-12&&my>=y+30&&my<y+114){
     int i=page*4+(int)((my-y-30)/21);
     if(i<r.projects().size()){selected=r.projects().get(i).id();notice="";return true;}
    }

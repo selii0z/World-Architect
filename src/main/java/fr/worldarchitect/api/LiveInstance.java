@@ -26,7 +26,7 @@ public final class LiveInstance {
     }
 
     public synchronized CompletableFuture<ServerLevel> open(MinecraftServer server, DimensionBackend backend) {
-        if (state != State.PREPARED || !backend.supported(server))
+        if ((state != State.PREPARED && state != State.CLOSED) || !backend.supported(server))
             return CompletableFuture.failedFuture(new IllegalStateException("Instance cannot be opened"));
         owner = backend;
         owningServer = server;

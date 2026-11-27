@@ -27,7 +27,7 @@ public final class ProjectBoundaryEvents {
  private static boolean manualAllowed(ServerLevel level,BlockPos pos,net.minecraft.world.entity.Entity entity){
   if(!allowed(level,pos))return false;
   var project=ProjectService.forLevel(level).orElse(null);
-  if(project==null)return true;
+  if(project==null)return !(entity instanceof ServerPlayer player&&ConstructionSessions.isolated(player));
   if(!(entity instanceof ServerPlayer player))return false;
   try{ConstructionSessions.requireEditor(player);BlockEditScheduler.requireIdle(player,project);return true;}
   catch(java.io.IOException|RuntimeException ex){return false;}

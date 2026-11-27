@@ -372,7 +372,7 @@ public final class ProjectPackets {
        server.execute(()->{
         var online=server.getPlayerList().getPlayer(playerId);
         if(error!=null)com.mojang.logging.LogUtils.getLogger().warn("Map activation failed",error);
-        if(online!=null){
+        if(online!=null&&online.hasPermissions(2)){
          var projects=ProjectService.list(online);
          var ready=new java.util.HashSet<java.util.UUID>();
          for(var p:projects)if(ProjectService.isReady(online,p.id()))ready.add(p.id());
@@ -389,7 +389,16 @@ public final class ProjectPackets {
      fr.worldarchitect.project.MapCatalog.linkProject(folder,project);
      message="Projet créé dans la collection ; redémarrage nécessaire";
     }
-    else if("create".equals(a.action())) ProjectService.create(player,a.name(),a.worldType(),a.size(),a.width(),a.profile(),a.automaticBackups());
+    else if("create".equals(a.action())) {
+      ProjectService.create(player,a.name(),a.worldType(),a.size(),a.width(),a.profile(),a.automaticBackups());
+      message="Projet enregistré ; chargement après redémarrage";
+     }
+     else if("save_project".equals(a.action())) {
+      var project=ProjectService.requireProject(player,java.util.UUID.fromString(a.name()));
+      var level=fr.worldarchitect.project.ProjectWorlds.resolve(player,project).orElseThrow(()->new IllegalStateException("Dimension not loaded"));
+      fr.worldarchitect.project.ProjectAutoSaves.saveNow(level,project);
+      message="Terrain enregistré (sans archive ZIP)";
+     }
     else if("enter_construction".equals(a.action())) fr.worldarchitect.project.ConstructionSessions.enter(player,java.util.UUID.fromString(a.name()));
     else if("visit".equals(a.action())) fr.worldarchitect.project.VisitSessions.enter(player,java.util.UUID.fromString(a.name()));
     else if("leave".equals(a.action())) {fr.worldarchitect.project.ConstructionSessions.leave(player);SELECTIONS.clear(player.getUUID());}
@@ -400,7 +409,11 @@ public final class ProjectPackets {
     result=new Result(true,message,projects,ready,structures,preview);
    }catch(Exception ex){
     com.mojang.logging.LogUtils.getLogger().warn("World Architect request failed for {}",player.getUUID(),ex);
-    result=new Result(false,"Impossible de traiter le projet",java.util.List.of(),java.util.Set.of());
+    java.util.List<Project> projects=java.util.List.of();
+    var ready=new java.util.HashSet<java.util.UUID>();
+    try{projects=ProjectService.list(player);for(var project:projects)if(ProjectService.isReady(player,project.id()))ready.add(project.id());}
+    catch(RuntimeException ignored){}
+    result=new Result(false,"Impossible de traiter le projet",projects,ready);
    }
    PacketDistributor.sendToPlayer(player,new Reply(GSON.toJson(result)));
   });
