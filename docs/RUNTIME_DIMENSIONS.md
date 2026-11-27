@@ -1,7 +1,6 @@
 # Experimental runtime dimensions and saves
 
-Use only a disposable copy of the server world. Enable with JVM argument
-`-Dworldarchitect.experimentalDynamicDimensions=true` before `-jar`.
+Use only a disposable copy of the server world. Runtime dimensions are enabled by default; no JVM argument is required. Emergency opt-out: `-Dworldarchitect.experimentalDynamicDimensions=false` before `-jar`.
 No additional runtime dependency is introduced. This is not a production release.
 
 - F8 project creation and imported-map activation request a native runtime level
@@ -27,7 +26,7 @@ does not validate dynamic level registration, client teleport, storage or recove
 
 ## Operator smoke test
 
-On a disposable server with the experimental JVM flag, use an existing catalog
+On a disposable server with runtime dimensions enabled, use an existing catalog
 collection and map (replace the example names with exact catalog names):
 
 1. Run `/wainstance create "Tarkov" "Woods"` twice; record both UUIDs.
