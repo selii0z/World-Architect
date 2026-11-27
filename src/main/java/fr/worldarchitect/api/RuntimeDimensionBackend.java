@@ -36,6 +36,7 @@ public final class RuntimeDimensionBackend implements DimensionBackend {
  }
  private final ArrayDeque<Pending<?>> queue=new ArrayDeque<>();
  private boolean stopping;
+ private boolean recoveryScanned;
  private record Mounted(ServerLevel level,Path prepared,Path mounted){}
  private final Map<UUID,Mounted> instances=new HashMap<>();
  RuntimeDimensionBackend(MinecraftServer server){this.server=server;}
@@ -51,6 +52,7 @@ public final class RuntimeDimensionBackend implements DimensionBackend {
  }
  void drain(){
   if(!server.isSameThread())throw new IllegalStateException("Server thread required");
+  if(!recoveryScanned){recoveryScanned=true;recoverOrphanTerrain();}
   Pending<?> task;
   synchronized(this){task=stopping?null:queue.pollFirst();}
   if(task!=null)task.run();
@@ -77,6 +79,37 @@ public final class RuntimeDimensionBackend implements DimensionBackend {
     if(error!=null)com.mojang.logging.LogUtils.getLogger().error("Runtime project load failed; project data retained: {}",project.id(),error);
    });
   });
+ }
+ /** Preserve orphaned terrain separately from live and prepared instances. */
+ private void recoverOrphanTerrain(){
+  var root=root();
+  var dimensions=root.resolve("dimensions/worldarchitect");
+  var recovery=root.resolve("worldarchitect/recovered-instances");
+  var logger=com.mojang.logging.LogUtils.getLogger();
+  try{
+   noLinks(root,dimensions);noLinks(root,recovery);
+   if(!Files.isDirectory(dimensions,LinkOption.NOFOLLOW_LINKS))return;
+   try(var paths=Files.newDirectoryStream(dimensions,"instance_*")){
+    for(var path:paths){
+     var name=path.getFileName().toString();
+     if(!name.matches("instance_[0-9a-f]{32}"))continue;
+     try{
+      noLinks(root,path);
+      if(!Files.isDirectory(path,LinkOption.NOFOLLOW_LINKS))continue;
+      var dimension=ResourceKey.create(Registries.DIMENSION,ResourceLocation.fromNamespaceAndPath("worldarchitect",name));
+      if(server.getLevel(dimension)!=null)continue;
+      var destination=recovery.resolve(name);
+      noLinks(root,destination);
+      if(Files.exists(destination,LinkOption.NOFOLLOW_LINKS)){
+       logger.warn("Recovery destination exists; orphan retained: {}",path);continue;
+      }
+      Files.createDirectories(recovery);
+      Files.move(path,destination,StandardCopyOption.ATOMIC_MOVE);
+      logger.warn("Recovered orphan instance terrain at {}",destination);
+     }catch(Exception ex){logger.error("Instance recovery failed; terrain retained: {}",path,ex);}
+    }
+   }
+  }catch(Exception ex){logger.error("Instance recovery scan failed",ex);}
  }
  private static ResourceKey<Level> key(UUID id){
   return ResourceKey.create(Registries.DIMENSION,ResourceLocation.fromNamespaceAndPath("worldarchitect","instance_"+id.toString().replace("-","")));
