@@ -29,6 +29,17 @@ public final class InstanceManager {
         }, executor);
     }
 
+    /** Snapshot of lifecycle states, including failed instances retained for recovery. */
+    public Map<UUID, LiveInstance.State> states() {
+        Map<UUID, LiveInstance.State> result = new HashMap<>();
+        live.forEach((id, instance) -> result.put(id, instance.state()));
+        return Map.copyOf(result);
+    }
+
+    public Optional<LiveInstance.State> state(UUID id) {
+        return Optional.ofNullable(live.get(id)).map(LiveInstance::state);
+    }
+
     public Set<UUID> listPrepared() { return Set.copyOf(prepared.keySet()); }
 
     public synchronized CompletableFuture<net.minecraft.server.level.ServerLevel> open(net.minecraft.server.MinecraftServer server, UUID id, DimensionBackend backend) {
