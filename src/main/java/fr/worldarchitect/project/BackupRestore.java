@@ -9,9 +9,11 @@ final class BackupRestore {
  static Path stage(Path archive,Path stagingRoot,long maxBytes) throws IOException {
   if(maxBytes<=0)throw new IllegalArgumentException("Invalid extraction limit");
   if(Files.isSymbolicLink(stagingRoot)||!Files.isRegularFile(archive,LinkOption.NOFOLLOW_LINKS))throw new IOException("Invalid restore source or staging directory");
+  ProjectBackupArchive.verify(archive);
   Files.createDirectories(stagingRoot);
   Path root=Files.createTempDirectory(stagingRoot,"restore-").toAbsolutePath().normalize();
   long total=0;int count=0;
+  byte[] buffer=new byte[65536];
   var seen=new java.util.HashSet<Path>();
   try(var zip=new ZipInputStream(Files.newInputStream(archive))){
    for(var entry=zip.getNextEntry();entry!=null;entry=zip.getNextEntry()){
@@ -28,7 +30,7 @@ final class BackupRestore {
     else{
      Files.createDirectories(target.getParent());
      try(var out=Files.newOutputStream(target,StandardOpenOption.CREATE_NEW)){
-      byte[] buffer=new byte[65536];int n;
+      int n;
       while((n=zip.read(buffer))!=-1){
        if(n>maxBytes-total)throw new IOException("Archive exceeds extraction limit");
        total+=n;out.write(buffer,0,n);
