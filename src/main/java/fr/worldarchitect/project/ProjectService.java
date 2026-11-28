@@ -20,13 +20,12 @@ public final class ProjectService {
    ProjectRegistry registry = new ProjectRegistry(server.getWorldPath(LevelResource.ROOT).resolve("worldarchitect"));
    REGISTRIES.put(server, registry);
    for (Project project : registry.list()) {
-    var key=net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION,net.minecraft.resources.ResourceLocation.parse(project.dimensionId().toString()));
+    var key=net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION,net.minecraft.resources.ResourceLocation.parse(project.dimensionId()));
     var level=server.getLevel(key);
     if(level!=null){
-     level.getWorldBorder().setCenter(0,0);
      ProjectWorlds.configureBorder(level,project);
     }else com.mojang.logging.LogUtils.getLogger().info("Project {} dimension not loaded; restart with project datapack enabled",project.id());
-    if (project.worldType() == Project.WorldType.IMPORTED) continue;
+
     try { ProjectDatapack.stage(server, project); }
     catch (java.nio.file.FileAlreadyExistsException ignored) {}
     catch (IOException e) { com.mojang.logging.LogUtils.getLogger().error("Cannot stage project {}", project.id(), e); }
@@ -58,12 +57,36 @@ public final class ProjectService {
  public static boolean isReady(ServerPlayer player, java.util.UUID id) {
   return ProjectWorlds.resolve(player, requireProject(player,id)).isPresent();
  }
+ public static Project rename(ServerPlayer player, java.util.UUID id, String name) throws IOException {
+  return authorized(player).rename(id,name);
+ }
  public static List<Project> list(ServerPlayer player) { return authorized(player).list(); }
+ public static java.util.concurrent.CompletableFuture<Project> activateImported(ServerPlayer player,String collection,String name) throws IOException {
+  var registry=authorized(player);
+  var source=MapCatalog.resolveTerrain(collection,name);
+  var project=new Project(java.util.UUID.randomUUID(),name,Project.WorldType.IMPORTED,0,"worldarchitect:generic",true,0);
+  var server=player.getServer();
+  var location=net.minecraft.resources.ResourceLocation.parse(project.dimensionId());
+  var destination=server.getWorldPath(LevelResource.ROOT).resolve("dimensions").resolve(location.getNamespace()).resolve(location.getPath());
+  return java.util.concurrent.CompletableFuture.runAsync(()->{
+   try { MapTerrain.snapshot(source,destination);
+    var overview=source.resolve("overview.png");
+    if(java.nio.file.Files.isRegularFile(overview,java.nio.file.LinkOption.NOFOLLOW_LINKS)&&java.nio.file.Files.size(overview)<=5242880L)java.nio.file.Files.copy(overview,destination.resolve("overview.png"),java.nio.file.LinkOption.NOFOLLOW_LINKS);
+   } catch(IOException e){throw new java.util.concurrent.CompletionException(e);}
+  }).thenCompose(ignored->server.submit(()->{
+   if(REGISTRIES.get(server)!=registry)throw new IllegalStateException("Server registry changed");
+   try { ProjectDatapack.stage(server,project);var registered=registry.register(project);
+    fr.worldarchitect.api.RuntimeDimensionBackend.scheduleProject(server,registered);
+    return registered; }
+   catch(IOException e){throw new java.util.concurrent.CompletionException(e);}
+  }));
+ }
  public static Project create(ServerPlayer player, String name, Project.WorldType type, int size, String profile, boolean backups) throws IOException {return create(player,name,type,size,size,profile,backups);}
  public static Project create(ServerPlayer player,String name,Project.WorldType type,int size,int width,String profile,boolean backups) throws IOException {
   if (type == Project.WorldType.IMPORTED) throw new IllegalArgumentException("Import not implemented");
   Project project = authorized(player).create(name,type,size,width,profile,backups);
   ProjectDatapack.stage(player.getServer(), project);
+  fr.worldarchitect.api.RuntimeDimensionBackend.scheduleProject(player.getServer(),project);
   return project;
  }
 }

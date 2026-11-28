@@ -1,0 +1,151 @@
+package fr.worldarchitect.project;
+
+import java.util.*;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
+import net.neoforged.neoforge.event.server.ServerStoppingEvent;
+
+@EventBusSubscriber(modid="worldarchitect")
+public final class BlockEditScheduler {
+    private BlockEditScheduler(){}
+    private record Running(UUID owner, BlockEditJob job, java.nio.file.Path archive, BlockEditHistory.Entry replay, boolean reverse, boolean recovery){}
+    private static final Map<MinecraftServer,Map<ResourceKey<Level>,Running>> JOBS=new IdentityHashMap<>();
+    public static void requireIdle(ServerPlayer player,Project project)throws java.io.IOException{
+        var server=player.getServer();
+        var jobs=JOBS.get(server);
+        if(jobs!=null&&jobs.containsKey(player.serverLevel().dimension()))throw new java.io.IOException("Construction operation already running");
+        requireCleanJournal(server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).resolve("worldarchitect/block-edits").resolve(project.id().toString()));
+    }
+    private static void requireCleanJournal(java.nio.file.Path dir) throws java.io.IOException {
+        if(!java.nio.file.Files.exists(dir))return;
+        try(var pending=java.nio.file.Files.newDirectoryStream(dir,"*.pending.nbt")){
+            if(pending.iterator().hasNext())throw new java.io.IOException("Unfinished construction journal: recovery required before further edits");
+        }
+    }
+    public static void submit(ServerPlayer player,StructureSelection.Selection selection,EditGeometry.Shape shape,
+            net.minecraft.world.level.block.state.BlockState target,net.minecraft.world.level.block.Block filter) throws java.io.IOException {
+        ConstructionSessions.requireEditor(player);
+        var server=player.getServer();
+        var dimension=player.serverLevel().dimension();
+        var jobs=JOBS.computeIfAbsent(server,s->new LinkedHashMap<>());
+        if(jobs.containsKey(dimension))throw new IllegalStateException("Construction operation already running");
+        var changes=BlockEditPlan.prepare(player,selection,shape,target,filter);
+        if(changes.isEmpty())return;
+        var project=ConstructionSessions.requireEditor(player);
+        var archive=server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT)
+            .resolve("worldarchitect/block-edits").resolve(project.id().toString()).resolve(UUID.randomUUID()+".pending.nbt");
+        requireCleanJournal(archive.getParent());
+        BlockEditArchive.save(archive,player.serverLevel(),player.getUUID(),changes);
+        jobs.put(dimension,new Running(player.getUUID(),new BlockEditJob(player.serverLevel(),changes),archive,null,false,false));
+    }
+    public static boolean replay(ServerPlayer player,boolean reverse)throws java.io.IOException{
+        var project=ConstructionSessions.requireEditor(player);
+        var server=player.getServer();
+        var level=player.serverLevel();
+        var jobs=JOBS.computeIfAbsent(server,s->new LinkedHashMap<>());
+        if(jobs.containsKey(level.dimension()))throw new IllegalStateException("Construction operation already running");
+        var dir=server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT)
+            .resolve("worldarchitect/block-edits").resolve(project.id().toString());
+        requireCleanJournal(dir);
+        var history=BlockEditHistory.load(dir.resolve("history.json"));
+        var entry=history.peek(reverse,player.getUUID());
+        if(entry==null)return false;
+        var changes=BlockEditArchive.load(dir.resolve(entry.archive()+".complete.nbt"),level,player.getUUID(),reverse);
+        for(var change:changes){
+            var p=change.position();
+            if(p.getY()<level.getMinBuildHeight()||p.getY()>=level.getMaxBuildHeight()
+                ||!project.bounds().contains(p.getX()+0.5,p.getZ()+0.5)||!level.getWorldBorder().isWithinBounds(p)
+                ||!level.hasChunkAt(p)||!level.getBlockState(p).equals(change.before()))
+                throw new java.io.IOException("Replay conflicts with current terrain or bounds");
+        }
+        var pending=dir.resolve(UUID.randomUUID()+".pending.nbt");
+        BlockEditArchive.save(pending,level,player.getUUID(),changes);
+        jobs.put(level.dimension(),new Running(player.getUUID(),new BlockEditJob(level,changes),pending,entry,reverse,false));
+        return true;
+    }
+    public static boolean recover(ServerPlayer player)throws java.io.IOException{
+        var project=ConstructionSessions.requireEditor(player);
+        var server=player.getServer();
+        var level=player.serverLevel();
+        var jobs=JOBS.computeIfAbsent(server,s->new LinkedHashMap<>());
+        if(jobs.containsKey(level.dimension()))throw new IllegalStateException("Construction operation already running");
+        var dir=server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).resolve("worldarchitect/block-edits").resolve(project.id().toString());
+        if(!java.nio.file.Files.isDirectory(dir))return false;
+        java.nio.file.Path archive;
+        try(var pending=java.nio.file.Files.newDirectoryStream(dir,"*.pending.nbt")){
+            var it=pending.iterator();if(!it.hasNext())return false;archive=it.next();
+            if(it.hasNext())throw new java.io.IOException("Multiple pending archives require manual review");
+        }
+        var plan=BlockEditRecovery.inspect(archive,level,project,player.getUUID());
+        if(plan.conflicts()!=0)throw new java.io.IOException("Recovery conflicts: "+plan.conflicts());
+        if(plan.restore().isEmpty())throw new java.io.IOException("Terrain already restored; journal requires manual review");
+        jobs.put(level.dimension(),new Running(player.getUUID(),new BlockEditJob(level,plan.restore()),archive,null,false,true));
+        return true;
+    }
+    public static boolean cancel(ServerPlayer player){
+        if(!player.getServer().isSameThread())throw new IllegalStateException("Server thread required");
+        var jobs=JOBS.get(player.getServer());
+        if(jobs==null)return false;
+        var running=jobs.get(player.serverLevel().dimension());
+        if(running==null||!running.owner().equals(player.getUUID()))return false;
+        running.job().cancel();return true;
+    }
+    @SubscribeEvent public static void tick(ServerTickEvent.Post event){
+        var jobs=JOBS.get(event.getServer());
+        if(jobs==null)return;
+        var iterator=jobs.entrySet().iterator();
+        if(!iterator.hasNext())return;
+        // Rotate the queue so all dimensions share the same server-wide budget.
+        var selected=iterator.next();
+        var dimension=selected.getKey();
+        var entry=selected.getValue();
+        var job=entry.job();
+        job.tick(512);
+        var viewer=event.getServer().getPlayerList().getPlayer(entry.owner());
+        if(viewer!=null){
+            int total=job.total();
+            int percent=total==0?100:(int)(100L*job.applied()/total);
+            String phase=job.state()==BlockEditJob.State.ROLLING_BACK?"Restauration":"Construction";
+            int filled=Math.max(0,Math.min(20,percent/5));
+            String bar="§a"+"|".repeat(filled)+"§7"+"|".repeat(20-filled)+"§r";
+            viewer.displayClientMessage(net.minecraft.network.chat.Component.literal(phase+"  "+bar+"  "+percent+"%  ("+job.applied()+"/"+total+")"),true);
+        }
+        switch(job.state()){
+            case COMPLETE,CANCELLED,FAILED -> {
+                iterator.remove();
+                try{
+                    if(entry.recovery()){
+                        // Keep the original journal until terrain persistence and history reconciliation are verified.
+                        com.mojang.logging.LogUtils.getLogger().warn("Recovery {}: original archive retained at {}",job.state(),entry.archive());
+                    }else if(job.state()==BlockEditJob.State.COMPLETE&&entry.replay()!=null){
+                        var history=BlockEditHistory.load(entry.archive().resolveSibling("history.json"));
+                        history.confirm(entry.reverse(),entry.replay());
+                        java.nio.file.Files.deleteIfExists(entry.archive());
+                    }else if(job.state()==BlockEditJob.State.COMPLETE){
+                        var destination=entry.archive().resolveSibling(entry.archive().getFileName().toString().replace(".pending.nbt",".complete.nbt"));
+                        java.nio.file.Files.move(entry.archive(),destination,java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+                        var history=BlockEditHistory.load(destination.resolveSibling("history.json"));
+                        var id=UUID.fromString(destination.getFileName().toString().replace(".complete.nbt",""));
+                        var expired=history.record(new BlockEditHistory.Entry(id,entry.owner()));
+                        for(var old:expired){
+                            try{java.nio.file.Files.deleteIfExists(destination.resolveSibling(old.archive()+".complete.nbt"));}
+                            catch(java.io.IOException cleanup){com.mojang.logging.LogUtils.getLogger().warn("Cannot remove expired edit archive",cleanup);}
+                        }
+                    }else if(!job.rollbackConflict())java.nio.file.Files.deleteIfExists(entry.archive());
+                }catch(java.io.IOException ex){com.mojang.logging.LogUtils.getLogger().error("Cannot finalize block edit archive",ex);}
+                var player=event.getServer().getPlayerList().getPlayer(entry.owner());
+                if(player!=null)player.sendSystemMessage(net.minecraft.network.chat.Component.literal("World Architect: "+job.state()+" ("+job.applied()+"/"+job.total()+")"+(job.rollbackConflict()?" - restauration incomplète":"")));
+            }
+            default -> {iterator.remove();jobs.put(dimension,entry);}
+        }
+    }
+    @SubscribeEvent public static void stopping(ServerStoppingEvent event){
+        var jobs=JOBS.remove(event.getServer());
+        if(jobs!=null&&!jobs.isEmpty())com.mojang.logging.LogUtils.getLogger().warn("Server stopped with {} unfinished construction operations; persistent recovery is not yet implemented",jobs.size());
+    }
+}

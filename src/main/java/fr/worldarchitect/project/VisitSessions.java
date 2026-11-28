@@ -40,7 +40,8 @@ public final class VisitSessions {
   if(event.getEntity() instanceof ServerPlayer player){
    try {ConstructionSessions.leave(player);} catch(Exception e){
     com.mojang.logging.LogUtils.getLogger().error("Visit recovery failed for {}",player.getUUID(),e);
-    player.sendSystemMessage(net.minecraft.network.chat.Component.literal("World Architect : récupération impossible, journal conservé."));
+    player.setGameMode(GameType.SPECTATOR);
+    player.connection.disconnect(net.minecraft.network.chat.Component.literal("World Architect : récupération impossible. Vos journaux sont conservés. Contactez un administrateur avant de reprendre la partie."));
    }
   }
  }

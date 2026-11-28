@@ -23,6 +23,14 @@ public final class StructureSelection {
   var next=new Selection(dimension,first?position.immutable():old.first(),first?old.second():position.immutable());
   selections.put(player,next);return next;
  }
+ public Selection set(net.minecraft.server.level.ServerPlayer player,BlockPos position,boolean first){
+  if(!player.hasPermissions(2))throw new SecurityException("Administrator required");
+  var level=player.serverLevel();
+  if(!level.getServer().isSameThread())throw new IllegalStateException("Server thread required");
+  var project=ProjectService.forLevel(level).orElseThrow(()->new IllegalStateException("Not a project dimension"));
+  if(position.getY()<level.getMinBuildHeight()||position.getY()>=level.getMaxBuildHeight()||!project.bounds().contains(position.getX()+0.5,position.getZ()+0.5))throw new IllegalArgumentException("Selection outside project bounds");
+  return set(player.getUUID(),level.dimension(),position,first);
+ }
  public Selection get(UUID player){return selections.get(player);}
  public void clear(UUID player){selections.remove(player);}
 }

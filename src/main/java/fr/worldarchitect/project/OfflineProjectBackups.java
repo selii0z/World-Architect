@@ -1,0 +1,56 @@
+package fr.worldarchitect.project;
+
+import java.io.IOException;
+import java.nio.file.*;
+import java.util.*;
+
+public final class OfflineProjectBackups {
+ private OfflineProjectBackups(){}
+ private static final BackupScheduler SCHEDULER=new BackupScheduler();
+ // Source must be an offline terrain directory, never a loaded dimension.
+ public static Path create(Path source,Path backupRoot,UUID project,String label,boolean automatic)throws IOException{
+  if(!SCHEDULER.claimManual(project))throw new IOException("Backup already running");
+  boolean success=false;
+  try{
+   if(Files.exists(source.resolve("session.lock")))throw new IOException("Source must be an offline snapshot");
+   Path result=ProjectBackupArchive.archive(source,backupRoot,project,label,automatic);
+   if(automatic)ProjectBackupArchive.pruneAutomatic(backupRoot,project);
+   success=true;return result;
+  }finally{SCHEDULER.complete(project,success,System.nanoTime());}
+ }
+ public static List<String> list(Path backupRoot,UUID project)throws IOException{
+  Path dir=backupRoot.resolve(project.toString());
+  if(Files.isSymbolicLink(backupRoot)||Files.isSymbolicLink(dir))throw new IOException("Invalid backup directory");
+  if(!Files.isDirectory(dir,LinkOption.NOFOLLOW_LINKS))return List.of();
+  try(var paths=Files.list(dir)){
+   return paths.filter(p->Files.isRegularFile(p,LinkOption.NOFOLLOW_LINKS)).map(p->p.getFileName().toString()).filter(OfflineProjectBackups::valid).sorted(Comparator.comparingLong(OfflineProjectBackups::timestamp).reversed().thenComparing(Comparator.naturalOrder())).limit(1000).toList();
+  }
+ }
+ private static long timestamp(String name){return Long.parseLong(name.split("-",3)[1]);}
+ private static boolean valid(String name){return name!=null&&name.matches("(auto|manual)-[0-9]{13}-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-[a-zA-Z0-9_-]{1,64}\\.zip");}
+ /** Restore as a new offline terrain copy; never replace the original. */
+ public static Path restoreCopy(Path backupRoot,UUID project,String name,Path stagingRoot,Path destination)throws IOException{
+  if(!SCHEDULER.claimManual(project))throw new IOException("Backup or restore already running");
+  boolean success=false;
+  Path staged=null;
+  try{
+   staged=stageRestore(backupRoot,project,name,stagingRoot);
+   Path result=MapTerrain.snapshot(staged,destination);
+   success=true;
+   return result;
+  }finally{
+   try{
+    if(staged!=null)try(var paths=Files.walk(staged)){
+     for(var p:paths.sorted(Comparator.reverseOrder()).toList())Files.deleteIfExists(p);
+    }
+   }finally{SCHEDULER.complete(project,success,System.nanoTime());}
+  }
+ }
+ public static Path stageRestore(Path backupRoot,UUID project,String name,Path stagingRoot)throws IOException{
+  if(!valid(name))throw new IOException("Invalid backup name");
+  Path dir=backupRoot.resolve(project.toString());
+  Path file=dir.resolve(name);
+  if(Files.isSymbolicLink(backupRoot)||Files.isSymbolicLink(dir)||!Files.isRegularFile(file,LinkOption.NOFOLLOW_LINKS))throw new IOException("Backup not found");
+  return BackupRestore.stage(file,stagingRoot,8L*1024*1024*1024);
+ }
+}

@@ -24,15 +24,23 @@ public final class ProjectBoundaryEvents {
   double z=Math.max(-b.width()/2.0+0.5,Math.min(b.width()/2.0-0.5,player.getZ()));
   player.teleportTo(player.serverLevel(),x,player.getY(),z,player.getYRot(),player.getXRot());
  }
+ private static boolean manualAllowed(ServerLevel level,BlockPos pos,net.minecraft.world.entity.Entity entity){
+  if(!allowed(level,pos))return false;
+  var project=ProjectService.forLevel(level).orElse(null);
+  if(project==null)return !(entity instanceof ServerPlayer player&&ConstructionSessions.isolated(player));
+  if(!(entity instanceof ServerPlayer player))return false;
+  try{ConstructionSessions.requireEditor(player);BlockEditScheduler.requireIdle(player,project);return true;}
+  catch(java.io.IOException|RuntimeException ex){return false;}
+ }
  @SubscribeEvent public static void breakBlock(BlockEvent.BreakEvent event){
-  if(event.getLevel() instanceof ServerLevel level&&!allowed(level,event.getPos()))event.setCanceled(true);
+  if(event.getLevel() instanceof ServerLevel level&&!manualAllowed(level,event.getPos(),event.getPlayer()))event.setCanceled(true);
  }
  @SubscribeEvent public static void placeBlock(BlockEvent.EntityPlaceEvent event){
-  if(event.getLevel() instanceof ServerLevel level&&!allowed(level,event.getPos()))event.setCanceled(true);
+  if(event.getLevel() instanceof ServerLevel level&&!manualAllowed(level,event.getPos(),event.getEntity()))event.setCanceled(true);
  }
  @SubscribeEvent public static void placeMultiple(BlockEvent.EntityMultiPlaceEvent event){
   if(event.getLevel() instanceof ServerLevel level)
    for(var snapshot:event.getReplacedBlockSnapshots())
-    if(!allowed(level,snapshot.getPos())){event.setCanceled(true);return;}
+    if(!manualAllowed(level,snapshot.getPos(),event.getEntity())){event.setCanceled(true);return;}
  }
 }

@@ -27,6 +27,8 @@ final class PlacementUndoJournal {
   var min=BlockPos.of(root.getLong("anchor"));
   var max=min.offset(x-1,y-1,z-1);
   if(min.getY()<level.getMinBuildHeight()||max.getY()>=level.getMaxBuildHeight()||!level.getWorldBorder().isWithinBounds(min)||!level.getWorldBorder().isWithinBounds(max))throw new IOException("Undo outside project bounds");
+  var project=ProjectService.forLevel(level).orElseThrow(()->new IOException("Not a project dimension"));
+  if(!project.bounds().contains(min.getX()+0.5,min.getZ()+0.5)||!project.bounds().contains(max.getX()+0.5,max.getZ()+0.5))throw new IOException("Undo outside rectangular project bounds");
   for(int cx=min.getX()>>4;cx<=max.getX()>>4;cx++)for(int cz=min.getZ()>>4;cz<=max.getZ()>>4;cz++)
    if(!level.hasChunk(cx,cz))throw new IOException("Unloaded undo region");
   var template=new StructureTemplate();

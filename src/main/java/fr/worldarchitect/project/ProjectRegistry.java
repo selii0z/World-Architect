@@ -34,11 +34,24 @@ public final class ProjectRegistry {
  public synchronized Project create(String name, Project.WorldType type, int size, String profile, boolean backups) throws IOException {return create(name,type,size,size,profile,backups);}
  public synchronized Project create(String name, Project.WorldType type,int size,int width,String profile,boolean backups) throws IOException {
   Project p = new Project(UUID.randomUUID(), name, type, size, profile, backups,width);
+  return register(p);
+ }
+ public synchronized Project register(Project p) throws IOException {
+  if(projects.containsKey(p.id())) throw new IllegalArgumentException("Duplicate project");
   Map<UUID, Project> next = new LinkedHashMap<>(projects);
   next.put(p.id(), p);
   persist(next);
   projects.put(p.id(), p);
   return p;
+ }
+ public synchronized Project rename(UUID id, String name) throws IOException {
+  Project old = find(id).orElseThrow(() -> new IllegalArgumentException("Unknown project"));
+  Project renamed = new Project(old.id(), name, old.worldType(), old.size(), old.profile(), old.automaticBackups(), old.width());
+  Map<UUID, Project> next = new LinkedHashMap<>(projects);
+  next.put(id, renamed);
+  persist(next);
+  projects.put(id, renamed);
+  return renamed;
  }
  private void persist(Map<UUID, Project> next) throws IOException {
   Path temp = Files.createTempFile(file.getParent(), "projects-", ".tmp");

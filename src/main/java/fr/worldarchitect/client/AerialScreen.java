@@ -1,0 +1,132 @@
+package fr.worldarchitect.client;
+import fr.worldarchitect.network.ProjectPackets;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.network.chat.Component;
+
+public final class AerialScreen extends Screen {
+ private final Screen parent;
+ private int cx,cz,step=4;
+ private boolean initialized;
+ private long lastRequest;
+ private boolean dirty,dragging;
+ private fr.worldarchitect.project.ProjectMarkers.Marker moving;
+ public void beginMove(fr.worldarchitect.project.ProjectMarkers.Marker marker){moving=marker;}
+ private fr.worldarchitect.project.AerialMap.Tile previousTile;
+ private double dragX,dragZ;
+ private int pixelSize(){return Math.max(1,Math.min((width-20)/64,(height-82)/64));}
+ private boolean overMap(double x,double y){int size=pixelSize()*64;return x>=(width-size)/2&&x<(width+size)/2&&y>=24&&y<24+size;}
+ private void changed(){dirty=true;}
+ public AerialScreen(Screen parent){super(Component.literal("Carte aérienne"));this.parent=parent;}
+ private void refresh(){dirty=false;lastRequest=System.nanoTime();ProjectPackets.requestAerial(cx,cz,step);}
+ private void globalView(){
+  var r=ProjectPackets.aerial();
+  if(r==null||r.tile()==null||minecraft.level==null)return;
+  var t=r.tile();
+  if(!t.dimension().equals(minecraft.level.dimension().location().toString())||t.length()<=0||t.width()<=0)return;
+  cx=0;cz=0;step=1;
+  while(step<1024&&64L*step<Math.max(t.length(),t.width())+4L)step*=2;
+  changed();
+ }
+ private void move(int dx,int dz){cx+=dx*step*16;cz+=dz*step*16;changed();}
+ private void button(String label,int x,int y,int w,Runnable run){addRenderableWidget(Button.builder(Component.literal(label),b->run.run()).bounds(x,y,w,20).build());}
+ @Override protected void init(){
+  if(!initialized&&minecraft.player!=null){cx=minecraft.player.getBlockX();cz=minecraft.player.getBlockZ();initialized=true;ProjectPackets.refreshMarkers();refresh();}
+  int x=width/2-100,y=height-48;
+  button("<",x,y,30,()->move(-1,0));button(">",x+34,y,30,()->move(1,0));
+  button("N",x+68,y,30,()->move(0,-1));button("S",x+102,y,30,()->move(0,1));
+  button("+",x+136,y,30,()->{step=Math.max(1,step/2);changed();});
+  button("-",x+170,y,30,()->{step=Math.min(1024,step*2);changed();});
+  button("Centrer",x,y+22,64,()->{if(minecraft.player!=null){cx=minecraft.player.getBlockX();cz=minecraft.player.getBlockZ();refresh();}});
+  button("Vue globale",x+68,y+22,64,this::globalView);button("Retour",x+136,y+22,64,this::onClose);
+  button("Carte PNG",Math.max(4,width-84),2,80,()->{ProjectPackets.clearOverviewImage();ProjectPackets.request(new ProjectPackets.Action("project_overview_image",null,null,0,null,false));minecraft.setScreen(new OverviewImageScreen(this,true));});
+ }
+ @Override public void tick(){
+  if(!dragging&&System.nanoTime()-lastRequest>(dirty?600000000L:2000000000L))refresh();
+ }
+ @Override public void render(GuiGraphics g,int mx,int my,float delta){
+  g.fill(0,0,width,height,0xff1c201b);
+  g.drawCenteredString(font,"CARTE AÉRIENNE — "+(64*step)+" blocs",width/2,8,0xffb6c69c);
+  int pixel=Math.max(1,Math.min((width-20)/64,(height-82)/64)),size=pixel*64,x=(width-size)/2,y=24;
+  g.fill(x,y,x+size,y+size,0xff333833);
+  var r=ProjectPackets.aerial();
+  if(r!=null&&r.tile()!=null&&minecraft.level!=null&&r.tile().dimension().equals(minecraft.level.dimension().location().toString()))previousTile=r.tile();
+  if(previousTile!=null&&minecraft.level!=null){
+   var t=previousTile;
+   if(t.size()==64&&t.colors().length==4096&&t.dimension().equals(minecraft.level.dimension().location().toString())){
+    for(int i=0;i<4096;i++){int color=t.colors()[i];if(color==0)continue;double scale=pixel/(double)step;int px=x+(int)Math.floor((t.originX()+i%64*t.step()-cx+32.0*step)*scale),py=y+(int)Math.floor((t.originZ()+i/64*t.step()-cz+32.0*step)*scale);int ex=x+(int)Math.ceil((t.originX()+(i%64+1)*t.step()-cx+32.0*step)*scale),ey=y+(int)Math.ceil((t.originZ()+(i/64+1)*t.step()-cz+32.0*step)*scale);int l=Math.max(x,px),a=Math.max(y,py),rr=Math.min(x+size,ex),bb=Math.min(y+size,ey);if(l<rr&&a<bb)g.fill(l,a,rr,bb,color);}
+   }
+   if(t.size()==64&&t.colors().length==4096&&t.step()==step&&t.originX()==cx-32*step&&t.originZ()==cz-32*step&&t.dimension().equals(minecraft.level.dimension().location().toString())){
+    for(int i=0;i<4096;i++){int c=t.colors()[i];if(c!=0){int px=x+i%64*pixel,py=y+i/64*pixel;g.fill(px,py,px+pixel,py+pixel,c);}}
+   }
+   if(t.size()==64&&t.colors().length==4096&&t.dimension().equals(minecraft.level.dimension().location().toString())){
+    int originX=cx-32*step,originZ=cz-32*step;
+    if(t.length()>0&&t.width()>0){
+     int left=x+(int)Math.round((-t.length()/2.0-originX)/step*pixel),right=x+(int)Math.round((t.length()/2.0-originX)/step*pixel);
+     int top=y+(int)Math.round((-t.width()/2.0-originZ)/step*pixel),bottom=y+(int)Math.round((t.width()/2.0-originZ)/step*pixel);
+     int l=Math.max(x,left),rgt=Math.min(x+size,right),a=Math.max(y,top),b=Math.min(y+size,bottom);
+     if(l<rgt&&a<b){
+      if(left>=x&&left<x+size)g.fill(left,a,left+1,b,0xffff4444);
+      if(right>=x&&right<x+size)g.fill(right,a,right+1,b,0xffff4444);
+      if(top>=y&&top<y+size)g.fill(l,top,rgt,top+1,0xffff4444);
+      if(bottom>=y&&bottom<y+size)g.fill(l,bottom,rgt,bottom+1,0xffff4444);
+     }
+    }
+    var markers=ProjectPackets.markers();
+    if(markers!=null&&markers.success()&&t.dimension().equals(markers.dimension())){
+     for(var m:markers.markers()){
+      int px=x+(int)((m.x()-originX)/(double)step*pixel),py=y+(int)((m.z()-originZ)/(double)step*pixel);
+      if(px<x||px>=x+size||py<y||py>=y+size)continue;
+      int color=switch(m.color()){case GREEN->0xff52b765;case BLUE->0xff498be4;case YELLOW->0xffe5c441;case RED->0xffdb5151;case PURPLE->0xffa66bd9;default->0xffffffff;};
+      g.fill(px-3,py-3,px+4,py+4,0xff111111);g.fill(px-2,py-2,px+3,py+3,color);
+      if(Math.abs(mx-px)<=5&&Math.abs(my-py)<=5)g.drawString(font,m.name(),px+5,py-9,color);
+     }
+    }
+    if(minecraft.player!=null){int px=x+(int)((minecraft.player.getX()-originX)/step*pixel),py=y+(int)((minecraft.player.getZ()-originZ)/step*pixel);if(px>=x&&px<x+size&&py>=y&&py<y+size)g.fill(px-2,py-2,px+3,py+3,0xffffffff);}
+   }
+  }
+  g.drawCenteredString(font,"X: "+cx+"  Z: "+cz,width/2,height-60,0xffe9eadf);
+  var markerStatus=ProjectPackets.markers();
+  String hint="Clic droit : créer / gérer un marqueur";
+  int hintColor=0xffb6c69c;
+  if(markerStatus!=null&&markerStatus.message()!=null&&!markerStatus.message().isBlank()&&minecraft.level!=null&&minecraft.level.dimension().location().toString().equals(markerStatus.dimension())){hint=markerStatus.message();hintColor=markerStatus.success()?0xff8fd28a:0xffff7777;}
+  if(moving!=null){hint="Choisir la destination — clic droit pour annuler";hintColor=0xffe5c441;}
+  g.drawCenteredString(font,font.plainSubstrByWidth(hint,Math.max(1,width-12)),width/2,height-72,hintColor);
+  super.render(g,mx,my,delta);
+ }
+ @Override public boolean mouseScrolled(double x,double y,double horizontal,double vertical){
+  if(!overMap(x,y)||vertical==0)return super.mouseScrolled(x,y,horizontal,vertical);
+  int old=step;step=vertical>0?Math.max(1,step/2):Math.min(1024,step*2);
+  int pixel=pixelSize();cx+=(int)Math.round((x-width/2.0)/pixel*(old-step));cz+=(int)Math.round((y-24-32*pixel)/pixel*(old-step));changed();return true;
+ }
+ @Override public boolean mouseClicked(double x,double y,int button){
+  if(moving!=null&&button==1){moving=null;return true;}
+  if(moving!=null&&button==0&&overMap(x,y)){int pixel=pixelSize();int bx=cx+(int)Math.floor((x-(width-64*pixel)/2.0)/pixel*step)-32*step;int bz=cz+(int)Math.floor((y-24)/pixel*step)-32*step;var marker=moving; minecraft.setScreen(new net.minecraft.client.gui.screens.ConfirmScreen(ok->{if(ok){ProjectPackets.request(new ProjectPackets.Action("marker_move",marker.id().toString(),null,0,bx+","+bz,false));moving=null;}minecraft.setScreen(this);},Component.literal("Déplacer "+marker.name()),Component.literal("X: "+bx+" Z: "+bz+" ?")));return true;}
+  if(button==1&&overMap(x,y)&&minecraft.level!=null){
+   var markers=ProjectPackets.markers();
+   if(markers!=null&&markers.success()&&markers.dimension().equals(minecraft.level.dimension().location().toString())){
+    int pixel=pixelSize();double best=49;fr.worldarchitect.project.ProjectMarkers.Marker chosen=null;
+    for(var m:markers.markers()){
+     double px=(width-64*pixel)/2.0+(m.x()-cx+32.0*step)/step*pixel,py=24+(m.z()-cz+32.0*step)/step*pixel;
+     double distance=(px-x)*(px-x)+(py-y)*(py-y);
+     if(distance<best){best=distance;chosen=m;}
+    }
+    if(chosen!=null){
+     minecraft.setScreen(new MarkerActionsScreen(this,chosen));
+     return true;
+    }
+   }
+  }
+  if(button==1&&overMap(x,y)&&minecraft.level!=null){int pixel=pixelSize();int bx=cx+(int)Math.floor((x-(width-64*pixel)/2.0)/pixel*step)-32*step;int bz=cz+(int)Math.floor((y-24)/pixel*step)-32*step;minecraft.setScreen(new MapMarkerScreen(this,bx,bz));return true;}
+  if(button==0&&overMap(x,y)){dragging=true;dragX=0;dragZ=0;return true;}return super.mouseClicked(x,y,button);
+ }
+ @Override public boolean mouseDragged(double x,double y,int button,double dx,double dy){
+  if(dragging&&button==0){dragX-=dx*step/pixelSize();dragZ-=dy*step/pixelSize();int ix=(int)dragX,iz=(int)dragZ;cx+=ix;cz+=iz;dragX-=ix;dragZ-=iz;changed();return true;}return super.mouseDragged(x,y,button,dx,dy);
+ }
+ @Override public boolean mouseReleased(double x,double y,int button){
+  if(dragging&&button==0){dragging=false;changed();return true;}return super.mouseReleased(x,y,button);
+ }
+ @Override public void onClose(){minecraft.setScreen(parent);}
+ @Override public boolean isPauseScreen(){return false;}
+}
