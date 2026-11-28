@@ -393,6 +393,10 @@ public final class ProjectPackets {
       ProjectService.create(player,a.name(),a.worldType(),a.size(),a.width(),a.profile(),a.automaticBackups());
       message=fr.worldarchitect.api.RuntimeDimensionBackend.enabled(player.getServer())?"Projet enregistré ; chargement à chaud demandé":"Projet enregistré ; chargement après redémarrage";
      }
+     else if("rename_project".equals(a.action())) {
+      ProjectService.rename(player,java.util.UUID.fromString(a.name()),a.profile());
+      message="Projet renommé";
+     }
      else if("save_project".equals(a.action())) {
       var project=ProjectService.requireProject(player,java.util.UUID.fromString(a.name()));
       var level=fr.worldarchitect.project.ProjectWorlds.resolve(player,project).orElseThrow(()->new IllegalStateException("Dimension not loaded"));
