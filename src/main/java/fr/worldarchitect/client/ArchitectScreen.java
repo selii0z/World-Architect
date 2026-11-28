@@ -9,7 +9,8 @@ import fr.worldarchitect.project.Project;
 public final class ArchitectScreen extends Screen {
  private static final int BG=0xff1c201b,PANEL=0xff2c3427,ACCENT=0xffb6c69c,TEXT=0xffe9eadf;
  private boolean creating=false, backups=true, selecting=false, library=false;
- private boolean toolsOpen=false;
+ private boolean toolsOpen=false, managing=false;
+ private String renameName="";
  private int shapeIndex=0;
  private String targetBlock="minecraft:stone",filterBlock="";
  private final String[] shapeLabels={"Plein","Murs","Boîte creuse","Ellipsoïde","Ellipsoïde creux","Cylindre","Cylindre creux"};
@@ -127,6 +128,11 @@ public final class ArchitectScreen extends Screen {
    button("Enregistrer dans la bibliothèque",x+12,y+130,w-24,()->{if(!prefabName.isBlank()&&!prefabCategory.isBlank())ProjectPackets.request(new ProjectPackets.Action("capture_structure",prefabName,null,0,prefabCategory,false));});
    button("Revenir au jeu",x+12,y+158,half,this::onClose);
    button("Retour aux projets",x+w/2+2,y+158,half,()->{selecting=false;rebuild();});
+  }else if(managing){
+   var field=new EditBox(font,x+12,y+54,w-24,20,Component.literal("Nouveau nom"));
+   field.setMaxLength(80);field.setValue(renameName);field.setResponder(v->renameName=v);addRenderableWidget(field);
+   button("Renommer",x+12,y+82,w-24,()->{if(selected!=null&&!renameName.isBlank()){notice="";ProjectPackets.request(new ProjectPackets.Action("rename_project",selected.toString(),null,0,renameName,false));}});
+   button("Retour",x+12,y+110,w-24,()->{managing=false;rebuild();});
   }else if(!creating){
    button("+ Créer un nouveau projet",x+12,y+144,w-24,()->{targetCollection=null;creating=true;rebuild();});
    button("<",x+12,y+118,30,()->page=Math.max(0,page-1));
@@ -140,7 +146,7 @@ public final class ArchitectScreen extends Screen {
    button("Outils",x+w/2+2,y+216,(w-28)/2,()->{toolsOpen=true;rebuild();});
    button("Carte aérienne",x+w/2+2,y+240,(w-28)/2,()->minecraft.setScreen(new AerialScreen(this)));
    button("Marqueurs",x+12,y+240,(w-28)/2,()->{ProjectPackets.refreshMarkers();minecraft.setScreen(new MarkerScreen(this));});
-   button("Actualiser",x+12,y+264,(w-28)/2,()->{notice="";refresh();});
+   button("Gérer le projet",x+12,y+264,(w-28)/2,()->{var r=ProjectPackets.latest();if(r==null||selected==null){notice="Sélectionnez un projet";return;}r.projects().stream().filter(p->p.id().equals(selected)).findFirst().ifPresent(p->{renameName=p.name();managing=true;notice="";rebuild();});});
    button("Sauver terrain",x+w/2+2,y+264,(w-28)/2,()->{if(selected==null){notice="Sélectionnez un projet";return;}notice="";action("save_project");});
   }else{
    nameBox=new EditBox(font,x+12,y+34,w-24,20,Component.literal("Nom du projet"));
@@ -163,7 +169,7 @@ public final class ArchitectScreen extends Screen {
   g.fill(0,0,width,height,BG);
   int w=Math.min(340,width-24),x=(width-w)/2,y=panelY();
   g.fill(x,y,x+w,y+308,PANEL);
-  g.drawCenteredString(font,catalogOpen?(collection==null?"COLLECTIONS DE MAPS":font.plainSubstrByWidth(collection,w-24)):library?"BIBLIOTHÈQUE":toolsOpen?"OUTILS DE CONSTRUCTION":selecting?"SÉLECTION DE BÂTIMENT":creating?(targetCollection==null?"NOUVEAU PROJET":font.plainSubstrByWidth("NOUVELLE MAP : "+targetCollection,w-24)):"WORLD ARCHITECT",width/2,y+10,ACCENT);
+  g.drawCenteredString(font,catalogOpen?(collection==null?"COLLECTIONS DE MAPS":font.plainSubstrByWidth(collection,w-24)):library?"BIBLIOTHÈQUE":toolsOpen?"OUTILS DE CONSTRUCTION":selecting?"SÉLECTION DE BÂTIMENT":creating?(targetCollection==null?"NOUVEAU PROJET":font.plainSubstrByWidth("NOUVELLE MAP : "+targetCollection,w-24)):managing?"GESTION DU PROJET":"WORLD ARCHITECT",width/2,y+10,ACCENT);
   if(catalogOpen){
    var rows=catalogRows();var response=ProjectPackets.catalog();
    for(int i=catalogPage*5;i<Math.min(rows.size(),catalogPage*5+5);i++){
@@ -192,6 +198,8 @@ public final class ArchitectScreen extends Screen {
    var r=ProjectPackets.latest();
    if(r!=null)g.drawCenteredString(font,font.plainSubstrByWidth(r.message(),w-24),width/2,y+186,r.success()?ACCENT:0xffdf8b80);
    g.drawCenteredString(font,"Les points utilisent votre position actuelle",width/2,y+200,TEXT);
+  }else if(managing){
+   g.drawCenteredString(font,"Nom du projet",width/2,y+36,TEXT);
   }else if(!creating){
    var r=ProjectPackets.latest();
    if(r==null)g.drawCenteredString(font,"Chargement...",width/2,y+48,TEXT);
@@ -236,7 +244,7 @@ public final class ArchitectScreen extends Screen {
     if(i<entries.size()){prefabSelected=entries.get(i).id();return true;}
    }
   }
-  if(!creating&&!selecting&&!library&&!toolsOpen&&button==0){
+  if(!creating&&!selecting&&!library&&!toolsOpen&&!managing&&button==0){
    int w=Math.min(340,width-24),x=(width-w)/2,y=panelY();
    var r=ProjectPackets.latest();
    if(r!=null&&mx>=x+12&&mx<x+w-12&&my>=y+30&&my<y+114){
