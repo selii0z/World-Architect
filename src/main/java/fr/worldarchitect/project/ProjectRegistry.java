@@ -44,6 +44,15 @@ public final class ProjectRegistry {
   projects.put(p.id(), p);
   return p;
  }
+ public synchronized Project rename(UUID id, String name) throws IOException {
+  Project old = find(id).orElseThrow(() -> new IllegalArgumentException("Unknown project"));
+  Project renamed = new Project(old.id(), name, old.worldType(), old.size(), old.profile(), old.automaticBackups(), old.width());
+  Map<UUID, Project> next = new LinkedHashMap<>(projects);
+  next.put(id, renamed);
+  persist(next);
+  projects.put(id, renamed);
+  return renamed;
+ }
  private void persist(Map<UUID, Project> next) throws IOException {
   Path temp = Files.createTempFile(file.getParent(), "projects-", ".tmp");
   try {
