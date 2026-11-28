@@ -57,6 +57,9 @@ public final class ProjectService {
  public static boolean isReady(ServerPlayer player, java.util.UUID id) {
   return ProjectWorlds.resolve(player, requireProject(player,id)).isPresent();
  }
+ public static Project rename(ServerPlayer player, java.util.UUID id, String name) throws IOException {
+  return authorized(player).rename(id,name);
+ }
  public static List<Project> list(ServerPlayer player) { return authorized(player).list(); }
  public static java.util.concurrent.CompletableFuture<Project> activateImported(ServerPlayer player,String collection,String name) throws IOException {
   var registry=authorized(player);
